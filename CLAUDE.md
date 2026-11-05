@@ -25,8 +25,10 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
    (`src/transcription/`), resultaat als note events `{ start, duration, midi, amplitude }`,
    exporteerbaar als JSON. Getoond als pianorol in de notenlane. Werkt voor solo gitaar. Bij een
    volledige mix eerst de gitaar scheiden (bijvoorbeeld Demucs, server-side).
-3. Notatielane (VexFlow) onder de waveform. Quantiseren vraagt tempo: laat de gebruiker de BPM
-   invullen of tikken in plaats van automatisch detecteren.
+3. Klaar: notatielane (VexFlow 4.2.5, `vexflow/bravura`, lettertype zit in het pakket) onder de
+   waveform. Tempo, maatsoort en tel 1 komen van de gebruiker (invullen of tikken, nooit detecteren).
+   `src/notation/quantize.ts` zet noten op zestienden, één stem met akkoorden, rusten en overbindingen.
+   Een sterktedrempel (standaard 0,4) houdt zwakke noten (boventonen) uit de notatie.
 4. Tab-lane: MIDI naar (snaar, fret) met dynamic programming (Viterbi). Kosten voor
    handverplaatsing, spanwijdte (maximaal ongeveer 4 frets) en afstand tot een voorkeurspositie.
    Tuning en capo zijn parameters.
@@ -50,6 +52,11 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
 - TF.js 3.x roept in `setTimeoutCustom` `window` aan; in een worker gooit dat en blijft WebGL-
   inferentie stil hangen. De worker vervangt die functie daarom door gewone `setTimeout`. Niet weghalen.
 - Waakhond: als het eerste venster op WebGL niet binnen 30 s klaar is, start de hook opnieuw op de CPU.
+- Laanvolgorde: Opname, Notatie, Noten (pianorol). De tab-lane komt onder de notatie.
+- Notatie: maat k begint op `downbeat + k × maatduur`, ook negatieve k (opmaat). Elke noot staat op
+  `maatbegin + BAR_PAD + tick/maatticks × (maatbreedte − BAR_PAD)`; daarna wordt de TickContext
+  bijgeschoven tot `getNoteHeadBeginX()` precies daar valt. Sleutel en maatsoort zijn vastgepind links
+  in beeld. Alleen zichtbare maten worden met VexFlow opgebouwd, bij elke scroll opnieuw.
 
 ## Ontwerprichting
 
@@ -78,4 +85,9 @@ stekkers in messing, de ES-335 sunburst en de tweed Fender-versterker.
   (headless gebruikt software-GL), lange bestanden, Firefox en Safari.
 - Openstaand: geheugengebruik bij lange opnames. De bibliotheek bewaart frames en onsets als geneste
   JS-arrays (ruim 100 MB bij 15 minuten). Oplossing: eigen inferentielus met `Float32Array`'s.
-- Boventonen komen als losse zachte noten mee; nog geen filter.
+- Boventonen komen als losse zachte noten mee. Een filter op toonafstand (octaaf, duodecime) werkte niet:
+  op het testbestand had de echte E3 in het E-mineurakkoord dezelfde sterkteverhouding tot E2 als de
+  boventoon E4 tot E3. Daarom een instelbare drempel. De standaard 0,4 is op één synthetisch bestand gekozen.
+- Stap 3 is getest in headless Chromium op hetzelfde bestand: 4/4 en 3/4, tikken, inzoomen, telefoonbreedte.
+  Nootkoppen vallen binnen een paar pixels op hun aanslag. Niet geprobeerd: lange stukken, snelle loopjes,
+  echte opnames.

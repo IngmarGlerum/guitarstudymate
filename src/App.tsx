@@ -10,6 +10,7 @@ import { useFileDrop } from './hooks/useFileDrop';
 import { useHotkeys } from './hooks/useHotkeys';
 import { palette } from './theme/palette';
 import { useTranscription } from './transcription/useTranscription';
+import { useNotation } from './notation/useNotation';
 
 const AUDIO_EXTENSIONS = /\.(wav|wave|mp3|m4a|aac|ogg|oga|opus|flac|webm|weba)$/i;
 
@@ -22,6 +23,8 @@ export default function App() {
   const { status, error, track, load, fail } = transport;
   const transcription = useTranscription();
   const { reset: resetTranscription, start: startTranscription } = transcription;
+  const notation = useNotation(transcription.notes);
+  const { reset: resetNotation } = notation;
   const fileRef = useRef<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -30,6 +33,7 @@ export default function App() {
   const handleFile = useCallback(
     (file: File) => {
       resetTranscription();
+      resetNotation();
       if (!looksLikeAudio(file)) {
         fileRef.current = null;
         fail(MESSAGES.notAudio);
@@ -38,7 +42,7 @@ export default function App() {
       fileRef.current = file;
       void load(file);
     },
-    [load, fail, resetTranscription],
+    [load, fail, resetTranscription, resetNotation],
   );
 
   const transcribe = useCallback(() => {
@@ -114,6 +118,7 @@ export default function App() {
               track={track}
               transcription={transcription}
               onTranscribe={transcribe}
+              notation={notation}
             />
             <TransportBar transport={transport} />
           </Box>

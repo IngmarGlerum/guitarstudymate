@@ -3,7 +3,8 @@
 Een webapp om gitaarfragmenten te bestuderen: een opname laden, een stukje loopen,
 vertragen zonder dat de toonhoogte verandert, en later meelezen in notatie en tab.
 
-Klaar zijn **stap 1** (de audio-lane met upload en bediening) en **stap 2** (noten herkennen met Basic Pitch).
+Klaar zijn **stap 1** (de audio-lane met upload en bediening), **stap 2** (noten herkennen met Basic Pitch)
+en **stap 3** (notatie in maten).
 
 ## Starten
 
@@ -29,6 +30,11 @@ Instrument Sans) komen via `@fontsource`, dus er wordt niets van externe servers
   in een worker de noten uit de opname halen. Ze verschijnen als pianorol in de notenlane onder de
   golfvorm, op dezelfde tijdas, met de zes open snaren als hulplijnen. Het gespeelde deel licht op.
   Met de downloadknop sla je de noten op als JSON (`{ start, duration, midi, amplitude }`, in seconden).
+- **Notatie**: vul het tempo in of tik het mee, kies de maatsoort (2/4, 3/4 of 4/4) en zet zo nodig
+  tel 1 op de afspeelkop. De noten verschijnen in vioolsleutel met een 8 eronder (gitaar klinkt een
+  octaaf lager dan genoteerd), op een raster van zestienden. Elke maat is precies één maatduur breed
+  op de tijdas, dus maatstrepen en nootkoppen staan recht onder hun aanslag in de golfvorm.
+  Met de **drempel** laat je zwakke noten (vaak boventonen) uit de notatie; in de pianorol blijven ze als omtrek zichtbaar.
 
 ### Sneltoetsen
 
@@ -48,6 +54,10 @@ src/
   audio/
     useAudioTransport.ts   afspelen, loop, snelheid, volume, laden
     decode.ts, peaks.ts    decoderen en pieken berekenen voor de golfvorm
+  notation/
+    tempo.ts               tempo, maatduur, tap tempo
+    quantize.ts            noten naar zestienden, akkoorden, rusten, overbindingen per maat
+    useNotation.ts         instellingen (tempo, maat, tel 1, drempel) en de maten
   transcription/
     useTranscription.ts    start en stopt de worker, houdt status en noten bij
     basicPitch.worker.ts   TF.js + Basic Pitch, van samples naar noot-events
@@ -57,9 +67,11 @@ src/
     timeline/              de gedeelde tijdas
       Timeline.tsx         scroll, zoom, afspeelkop, klikken en slepen
       drawing.ts           lineaal, golfvorm en pianorol op canvas
+      drawNotation.ts      notenbalk met VexFlow, alleen de zichtbare maten
       LoopHandle.tsx       versleepbare loop-locators
       useWindowedCanvas.ts canvas ter grootte van het venster, tekent alleen wat zichtbaar is
     TransportBar.tsx       bediening onder de lane
+    NotationControls.tsx   tempo, tik, maatsoort, tel 1, drempel
     UploadDropzone.tsx     lege toestand
   theme/                   Chakra-systeem, kleuren en texturen
   hooks/                   sneltoetsen, bestanden slepen, animatieframe
@@ -90,10 +102,13 @@ Ze staan in `src/theme/palette.ts` en worden zowel door Chakra als door de canva
 - Basic Pitch geeft ook boventonen als losse, zachtere noten (vaak een octaaf of duodecime boven de echte noot). Die worden nog niet weggefilterd; dat hoort bij het handmatig corrigeren.
 - Geheugen: de bibliotheek houdt de modeluitvoer vast als geneste JS-arrays (88 waarden per frame, 86 frames per seconde). De contours (voor pitch bends) slaan we over, maar frames en onsets samen kosten bij 15 minuten nog ruim 100 MB in de worker.
 - Zonder bruikbare WebGL valt de worker terug op de CPU. Dat is ongeveer anderhalf keer zo traag als realtime; 15 minuten duurt dan lang.
+- De notatie is één stem: noten die op dezelfde zestiende beginnen worden een akkoord, en een noot of
+  akkoord stopt bij de volgende aanslag (doorklinkende snaren worden afgekapt). Geen triolen, geen
+  voortekening (alles in C met kruizen), alleen x/4-maatsoorten. Bij een vast tempo; tempowisselingen kan het niet.
+- Is een maat smaller dan 120 pixels, dan zie je alleen de notenbalk en vraagt de lane om in te zoomen.
 - Het model (ongeveer 900 kB, Apache-2.0) staat in `public/models/basic-pitch/`. De worker is ongeveer 1,8 MB en wordt pas geladen bij de eerste herkenning.
 
 ## Volgende stappen
 
-1. Notatielane (VexFlow) op dezelfde tijdas.
-2. Tab-lane: noten naar snaar en fret met dynamic programming.
-3. Handmatig corrigeren van noten en frets.
+1. Tab-lane: noten naar snaar en fret met dynamic programming.
+2. Handmatig corrigeren van noten en frets.

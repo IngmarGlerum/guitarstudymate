@@ -186,6 +186,7 @@ export function drawNotes(
   pps: number,
   duration: number,
   layout: NoteLayout,
+  minStrength = 0,
 ) {
   const pad = 6;
   const rows = layout.high - layout.low + 1;
@@ -225,6 +226,17 @@ export function drawNotes(
     const x = n.start * pps - scrollLeft;
     const w = Math.max(2, n.duration * pps - 1);
     const y = yOf(n.midi);
+
+    // below the notation threshold: outline only, never lit
+    if (n.amplitude < minStrength) {
+      if (tone === 'lit') continue;
+      ctx.strokeStyle = 'rgba(168,147,90,0.45)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(x + 0.5, y + 0.5, Math.max(1, w - 1), Math.max(1, barH - 1), radius);
+      ctx.stroke();
+      continue;
+    }
     const alpha = (tone === 'lit' ? 0.5 : 0.35) + 0.5 * Math.min(1, n.amplitude * 1.6);
 
     ctx.globalAlpha = alpha;

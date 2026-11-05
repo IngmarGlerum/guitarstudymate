@@ -14,6 +14,7 @@ import {
   LuLocateFixed,
   LuMaximize2,
   LuMusic,
+  LuMusic4,
   LuSparkles,
   LuX,
   LuZoomIn,
@@ -26,14 +27,21 @@ import { palette } from '../../theme/palette';
 import { Hint } from '../Hint';
 import { downloadDocument, noteName, toDocument } from '../../transcription/notes';
 import type { Transcription } from '../../transcription/useTranscription';
+import type { Notation } from '../../notation/useNotation';
+import { barDuration } from '../../notation/tempo';
+import { NotationControls } from '../NotationControls';
 import { drawNotes, drawRuler, drawWaveform, layoutNotes } from './drawing';
+import { drawNotation, MIN_BAR_PX } from './drawNotation';
 import { LoopHandle } from './LoopHandle';
 import { useWindowedCanvas, type DrawFn } from './useWindowedCanvas';
 
 export const RULER_H = 30;
 export const WAVE_H = 184;
+export const NOTATION_H = 176;
 export const NOTES_H = 196;
-const LANE_H = RULER_H + WAVE_H + NOTES_H;
+const NOTATION_TOP = RULER_H + WAVE_H;
+const NOTES_TOP = NOTATION_TOP + NOTATION_H;
+const LANE_H = NOTES_TOP + NOTES_H;
 const END_PAD = 28;
 const MAX_PPS = 800;
 const ZOOM_STEP = 1.5;
@@ -44,6 +52,7 @@ interface Props {
   track: TrackInfo;
   transcription: Transcription;
   onTranscribe: () => void;
+  notation: Notation;
 }
 
 const STAGE_LABEL = {
@@ -58,7 +67,7 @@ const STAGE_LABEL = {
  * the same horizontally scrolling content box, so x = time × pixels-per-second
  * holds for all of them, and one playhead and loop region cut through all lanes.
  */
-export function Timeline({ transport, track, transcription, onTranscribe }: Props) {
+export function Timeline({ transport, track, transcription, onTranscribe, notation }: Props) {
   const { peaks, loop, loopEnabled, setLoop, seek, getTime } = transport;
   const duration = track.duration;
 
@@ -69,6 +78,7 @@ export function Timeline({ transport, track, transcription, onTranscribe }: Prop
   const litCanvas = useRef<HTMLCanvasElement>(null);
   const notesDimCanvas = useRef<HTMLCanvasElement>(null);
   const notesLitCanvas = useRef<HTMLCanvasElement>(null);
+  const notationCanvas = useRef<HTMLCanvasElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
 
   const [viewportW, setViewportW] = useState(0);
@@ -153,14 +163,25 @@ export function Timeline({ transport, track, transcription, onTranscribe }: Prop
   );
   const { notes } = transcription;
   const noteLayout = useMemo(() => layoutNotes(notes ?? []), [notes]);
+  const minStrength = notation.settings.minStrength;
   const drawNotesDim = useCallback<DrawFn>(
-    (ctx, scrollLeft, w, h) => drawNotes(ctx, 'dim', scrollLeft, w, h, pps, duration, noteLayout),
-    [pps, duration, noteLayout],
+    (ctx, scrollLeft, w, h) =>
+      drawNotes(ctx, 'dim', scrollLeft, w, h, pps, duration, noteLayout, minStrength),
+    [pps, duration, noteLayout, minStrength],
   );
   const drawNotesLit = useCallback<DrawFn>(
-    (ctx, scrollLeft, w, h) => drawNotes(ctx, 'lit', scrollLeft, w, h, pps, duration, noteLayout),
-    [pps, duration, noteLayout],
+    (ctx, scrollLeft, w, h) =>
+      drawNotes(ctx, 'lit', scrollLeft, w, h, pps, duration, noteLayout, minStrength),
+    [pps, duration, noteLayout, minStrength],
   );
+  const { tempo, bars } = notation;
+  const drawNotationLane = useCallback<DrawFn>(
+    (ctx, scrollLeft, w, h) => {
+      if (tempo) drawNotation(ctx, scrollLeft, w, h, pps, duration, tempo, bars);
+    },
+    [pps, duration, tempo, bars],
+  );
+  useWindowedCanvas(notationCanvas, scrollerRef, NOTATION_H, drawNotationLane);
   useWindowedCanvas(rulerCanvas, scrollerRef, RULER_H, drawRulerLane);
   useWindowedCanvas(notesDimCanvas, scrollerRef, NOTES_H, drawNotesDim);
   useWindowedCanvas(notesLitCanvas, scrollerRef, NOTES_H, drawNotesLit);
@@ -314,6 +335,10 @@ export function Timeline({ transport, track, transcription, onTranscribe }: Prop
         </Flex>
       </Flex>
 
+      {notes && notes.length > 0 && (
+        <NotationControls notation={notation} getTime={getTime} totalNotes={notes.length} />
+      )}
+
       <Flex align="stretch">
         {/* lane header, where the notation and tab lanes will get their own */}
         <Box
@@ -337,6 +362,26 @@ export function Timeline({ transport, track, transcription, onTranscribe }: Prop
             <Text fontFamily="heading" fontStyle="italic" fontSize="md" color="fg">
               Opname
             </Text>
+          </Flex>
+          <Flex
+            h={`${NOTATION_H}px`}
+            direction="column"
+            align="center"
+            justify="center"
+            gap="1.5"
+            color="fg.muted"
+            borderTopWidth="1px"
+            borderColor="border"
+          >
+            <LuMusic4 size={20} color={palette.brass} />
+            <Text fontFamily="heading" fontStyle="italic" fontSize="md" color="fg">
+              Notatie
+            </Text>
+            {tempo && (
+              <Text fontSize="xs" fontVariantNumeric="tabular-nums">
+                {tempo.bpm} BPM · {tempo.beatsPerBar}/4
+              </Text>
+            )}
           </Flex>
           <Flex
             h={`${NOTES_H}px`}
@@ -425,10 +470,34 @@ export function Timeline({ transport, track, transcription, onTranscribe }: Prop
                 css={{ filter: 'drop-shadow(0 0 6px rgba(240,180,90,0.28))' }}
               />
 
+              {/* notation lane */}
+              <Box
+                position="absolute"
+                top={`${NOTATION_TOP}px`}
+                left="0"
+                right="0"
+                h={`${NOTATION_H}px`}
+                borderTopWidth="1px"
+                borderColor="border"
+                css={{ background: 'linear-gradient(180deg, #1c130d, #170f0a)' }}
+              />
+              <chakra.canvas
+                ref={notationCanvas}
+                position="absolute"
+                top={`${NOTATION_TOP}px`}
+                left="0"
+                aria-hidden="true"
+              />
+              <NotationLaneMessage
+                hasNotes={(notes?.length ?? 0) > 0}
+                hasTempo={tempo !== null}
+                tooNarrow={tempo !== null && barDuration(tempo) * pps < MIN_BAR_PX}
+              />
+
               {/* notes lane */}
               <Box
                 position="absolute"
-                top={`${RULER_H + WAVE_H}px`}
+                top={`${NOTES_TOP}px`}
                 left="0"
                 right="0"
                 bottom="0"
@@ -439,14 +508,14 @@ export function Timeline({ transport, track, transcription, onTranscribe }: Prop
               <chakra.canvas
                 ref={notesDimCanvas}
                 position="absolute"
-                top={`${RULER_H + WAVE_H}px`}
+                top={`${NOTES_TOP}px`}
                 left="0"
                 aria-hidden="true"
               />
               <chakra.canvas
                 ref={notesLitCanvas}
                 position="absolute"
-                top={`${RULER_H + WAVE_H}px`}
+                top={`${NOTES_TOP}px`}
                 left="0"
                 aria-hidden="true"
                 css={{ filter: 'drop-shadow(0 0 4px rgba(240,180,90,0.22))' }}
@@ -602,7 +671,7 @@ function NotesLaneMessage({ transcription }: { transcription: Transcription }) {
   return (
     <Flex
       position="absolute"
-      top={`${RULER_H + WAVE_H}px`}
+      top={`${NOTES_TOP}px`}
       left="0"
       right="0"
       bottom="0"
@@ -634,6 +703,44 @@ function NotesLaneMessage({ transcription }: { transcription: Transcription }) {
           />
         </Box>
       )}
+    </Flex>
+  );
+}
+
+function NotationLaneMessage({
+  hasNotes,
+  hasTempo,
+  tooNarrow,
+}: {
+  hasNotes: boolean;
+  hasTempo: boolean;
+  tooNarrow: boolean;
+}) {
+  const text = !hasNotes
+    ? 'Herken eerst de noten; daarna komt hier de notatie.'
+    : !hasTempo
+      ? 'Vul het tempo in of tik het mee om de noten in maten te zetten.'
+      : tooNarrow
+        ? 'Zoom in om de noten te lezen.'
+        : null;
+  if (!text) return null;
+  return (
+    <Flex
+      position="absolute"
+      top={`${NOTATION_TOP}px`}
+      left="0"
+      right="0"
+      h={`${NOTATION_H}px`}
+      align={hasTempo ? 'flex-end' : 'center'}
+      justify="center"
+      pb={hasTempo ? '3' : '0'}
+      px="4"
+      pointerEvents="none"
+      zIndex={1}
+    >
+      <Text fontSize="sm" color="fg.muted" textAlign="center" role="status">
+        {text}
+      </Text>
     </Flex>
   );
 }
