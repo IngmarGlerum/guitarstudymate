@@ -9,6 +9,7 @@ import { UploadDropzone } from './components/UploadDropzone';
 import { useFileDrop } from './hooks/useFileDrop';
 import { useHotkeys } from './hooks/useHotkeys';
 import { palette } from './theme/palette';
+import { useTranscription } from './transcription/useTranscription';
 
 const AUDIO_EXTENSIONS = /\.(wav|wave|mp3|m4a|aac|ogg|oga|opus|flac|webm|weba)$/i;
 
@@ -19,20 +20,30 @@ function looksLikeAudio(file: File) {
 export default function App() {
   const transport = useAudioTransport();
   const { status, error, track, load, fail } = transport;
+  const transcription = useTranscription();
+  const { reset: resetTranscription, start: startTranscription } = transcription;
+  const fileRef = useRef<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const openPicker = useCallback(() => inputRef.current?.click(), []);
 
   const handleFile = useCallback(
     (file: File) => {
+      resetTranscription();
       if (!looksLikeAudio(file)) {
+        fileRef.current = null;
         fail(MESSAGES.notAudio);
         return;
       }
+      fileRef.current = file;
       void load(file);
     },
-    [load, fail],
+    [load, fail, resetTranscription],
   );
+
+  const transcribe = useCallback(() => {
+    if (fileRef.current) void startTranscription(fileRef.current);
+  }, [startTranscription]);
 
   const dragging = useFileDrop(handleFile);
   useHotkeys(transport);
@@ -97,7 +108,13 @@ export default function App() {
             bg="bg.panel"
             css={{ boxShadow: `0 24px 70px rgba(0,0,0,0.5), 0 0 90px rgba(217,164,65,0.06)` }}
           >
-            <Timeline key={`${track.name}-${track.size}-${track.duration}`} transport={transport} track={track} />
+            <Timeline
+              key={`${track.name}-${track.size}-${track.duration}`}
+              transport={transport}
+              track={track}
+              transcription={transcription}
+              onTranscribe={transcribe}
+            />
             <TransportBar transport={transport} />
           </Box>
         ) : (

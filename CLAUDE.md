@@ -21,9 +21,10 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
 ## Stappenplan
 
 1. Klaar: audio-lane met upload, waveform, playhead, loop-locators, snelheid, zoom, sneltoetsen.
-2. Audio naar noten: Basic Pitch (TF.js) in een worker, resultaat als note events
-   `{ start, duration, midi, amplitude }` in JSON. Werkt voor solo gitaar. Bij een volledige mix
-   eerst de gitaar scheiden (bijvoorbeeld Demucs, server-side). Decodeer opnieuw op 22,05 kHz mono.
+2. Klaar: audio naar noten. Basic Pitch (`@spotify/basic-pitch`, TF.js 3) in een worker
+   (`src/transcription/`), resultaat als note events `{ start, duration, midi, amplitude }`,
+   exporteerbaar als JSON. Getoond als pianorol in de notenlane. Werkt voor solo gitaar. Bij een
+   volledige mix eerst de gitaar scheiden (bijvoorbeeld Demucs, server-side).
 3. Notatielane (VexFlow) onder de waveform. Quantiseren vraagt tempo: laat de gebruiker de BPM
    invullen of tikken in plaats van automatisch detecteren.
 4. Tab-lane: MIDI naar (snaar, fret) met dynamic programming (Viterbi). Kosten voor
@@ -44,6 +45,11 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
   canvas-lanes gebruiken `useWindowedCanvas` (canvas ter grootte van het venster).
 - De loop wrapt alleen als het einde tijdens het afspelen wordt gekruist, niet bij zoeken voorbij het einde.
 - Maximaal 15 minuten per bestand. De gedecodeerde buffer wordt na de pieken niet bewaard.
+- Transcriptie draait in `basicPitch.worker.ts`, nooit op de main thread. `useTranscription`
+  beëindigt de worker bij een nieuw bestand, bij stoppen en bij unmount.
+- TF.js 3.x roept in `setTimeoutCustom` `window` aan; in een worker gooit dat en blijft WebGL-
+  inferentie stil hangen. De worker vervangt die functie daarom door gewone `setTimeout`. Niet weghalen.
+- Waakhond: als het eerste venster op WebGL niet binnen 30 s klaar is, start de hook opnieuw op de CPU.
 
 ## Ontwerprichting
 
@@ -66,3 +72,10 @@ stekkers in messing, de ES-335 sunburst en de tweed Fender-versterker.
   is nog niet beluisterd.
 - Alleen Chrome is geprobeerd, niet Firefox of Safari.
 - Op touch maak je een loop met de Loop-knop en de locators; slepen over de waveform scrolt daar.
+- Stap 2 is getest in headless Chromium met een synthetisch Karplus-Strong-bestand (7 melodienoten
+  plus een akkoord van 4): alle 11 noten gevonden binnen ±15 ms, plus 8 zachtere boventonen.
+  WebGL en CPU gaven dezelfde uitvoer. Niet geprobeerd: echte gitaaropnames, een echte GPU
+  (headless gebruikt software-GL), lange bestanden, Firefox en Safari.
+- Openstaand: geheugengebruik bij lange opnames. De bibliotheek bewaart frames en onsets als geneste
+  JS-arrays (ruim 100 MB bij 15 minuten). Oplossing: eigen inferentielus met `Float32Array`'s.
+- Boventonen komen als losse zachte noten mee; nog geen filter.

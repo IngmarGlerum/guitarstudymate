@@ -3,7 +3,7 @@
 Een webapp om gitaarfragmenten te bestuderen: een opname laden, een stukje loopen,
 vertragen zonder dat de toonhoogte verandert, en later meelezen in notatie en tab.
 
-Dit is **stap 1**: de audio-lane met upload en bediening.
+Klaar zijn **stap 1** (de audio-lane met upload en bediening) en **stap 2** (noten herkennen met Basic Pitch).
 
 ## Starten
 
@@ -25,6 +25,10 @@ Instrument Sans) komen via `@fontsource`, dus er wordt niets van externe servers
 - **Loop**: sleep over de golfvorm om een loop te maken, of pak de locators in de lineaal om hem bij te stellen.
 - **Snelheid** van 0,25× tot 2× met behoud van toonhoogte, plus presets.
 - **Zoom** met de knoppen of Ctrl/⌘ + scrollen, en een knop om de afspeelkop te laten volgen.
+- **Noten herkennen**: de knop boven de lanes laat [Basic Pitch](https://github.com/spotify/basic-pitch)
+  in een worker de noten uit de opname halen. Ze verschijnen als pianorol in de notenlane onder de
+  golfvorm, op dezelfde tijdas, met de zes open snaren als hulplijnen. Het gespeelde deel licht op.
+  Met de downloadknop sla je de noten op als JSON (`{ start, duration, midi, amplitude }`, in seconden).
 
 ### Sneltoetsen
 
@@ -44,10 +48,15 @@ src/
   audio/
     useAudioTransport.ts   afspelen, loop, snelheid, volume, laden
     decode.ts, peaks.ts    decoderen en pieken berekenen voor de golfvorm
+  transcription/
+    useTranscription.ts    start en stopt de worker, houdt status en noten bij
+    basicPitch.worker.ts   TF.js + Basic Pitch, van samples naar noot-events
+    resample.ts            opnieuw decoderen op 22,05 kHz mono
+    notes.ts, types.ts     notennamen, JSON-export, berichtvormen van de worker
   components/
     timeline/              de gedeelde tijdas
       Timeline.tsx         scroll, zoom, afspeelkop, klikken en slepen
-      drawing.ts           lineaal en golfvorm op canvas
+      drawing.ts           lineaal, golfvorm en pianorol op canvas
       LoopHandle.tsx       versleepbare loop-locators
       useWindowedCanvas.ts canvas ter grootte van het venster, tekent alleen wat zichtbaar is
     TransportBar.tsx       bediening onder de lane
@@ -77,10 +86,14 @@ Ze staan in `src/theme/palette.ts` en worden zowel door Chakra als door de canva
 - Maximaal 15 minuten per bestand. De hele opname wordt eenmalig gedecodeerd voor de golfvorm.
 - Op een touchscreen maak je een loop met de Loop-knop en versleep je daarna de locators. Slepen over de golfvorm scrolt daar de lane.
 - Het gedecodeerde geluid wordt na het berekenen van de pieken niet bewaard. De transcriptiestap decodeert opnieuw, op 22,05 kHz mono.
+- Notenherkenning werkt voor solo gitaar. Bij een volledige mix moet de gitaar eerst gescheiden worden.
+- Basic Pitch geeft ook boventonen als losse, zachtere noten (vaak een octaaf of duodecime boven de echte noot). Die worden nog niet weggefilterd; dat hoort bij het handmatig corrigeren.
+- Geheugen: de bibliotheek houdt de modeluitvoer vast als geneste JS-arrays (88 waarden per frame, 86 frames per seconde). De contours (voor pitch bends) slaan we over, maar frames en onsets samen kosten bij 15 minuten nog ruim 100 MB in de worker.
+- Zonder bruikbare WebGL valt de worker terug op de CPU. Dat is ongeveer anderhalf keer zo traag als realtime; 15 minuten duurt dan lang.
+- Het model (ongeveer 900 kB, Apache-2.0) staat in `public/models/basic-pitch/`. De worker is ongeveer 1,8 MB en wordt pas geladen bij de eerste herkenning.
 
 ## Volgende stappen
 
-1. Audio naar noten (Basic Pitch in een worker), opgeslagen als noot-events.
-2. Notatielane (VexFlow) op dezelfde tijdas.
-3. Tab-lane: noten naar snaar en fret met dynamic programming.
-4. Handmatig corrigeren van noten en frets.
+1. Notatielane (VexFlow) op dezelfde tijdas.
+2. Tab-lane: noten naar snaar en fret met dynamic programming.
+3. Handmatig corrigeren van noten en frets.

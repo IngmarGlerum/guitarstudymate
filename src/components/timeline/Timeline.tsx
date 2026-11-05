@@ -1,25 +1,39 @@
-import { Box, chakra, Flex, IconButton, Text } from '@chakra-ui/react';
+import { Box, Button, chakra, Flex, IconButton, Text } from '@chakra-ui/react';
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent,
 } from 'react';
-import { LuAudioWaveform, LuLocateFixed, LuMaximize2, LuZoomIn, LuZoomOut } from 'react-icons/lu';
+import {
+  LuAudioWaveform,
+  LuDownload,
+  LuLocateFixed,
+  LuMaximize2,
+  LuMusic,
+  LuSparkles,
+  LuX,
+  LuZoomIn,
+  LuZoomOut,
+} from 'react-icons/lu';
 import type { TrackInfo, Transport } from '../../audio/useAudioTransport';
 import { useFrame } from '../../hooks/useFrame';
 import { clamp, formatBytes, formatTime } from '../../lib/format';
 import { palette } from '../../theme/palette';
 import { Hint } from '../Hint';
-import { drawRuler, drawWaveform } from './drawing';
+import { downloadDocument, noteName, toDocument } from '../../transcription/notes';
+import type { Transcription } from '../../transcription/useTranscription';
+import { drawNotes, drawRuler, drawWaveform, layoutNotes } from './drawing';
 import { LoopHandle } from './LoopHandle';
 import { useWindowedCanvas, type DrawFn } from './useWindowedCanvas';
 
 export const RULER_H = 30;
 export const WAVE_H = 184;
-const LANE_H = RULER_H + WAVE_H;
+export const NOTES_H = 196;
+const LANE_H = RULER_H + WAVE_H + NOTES_H;
 const END_PAD = 28;
 const MAX_PPS = 800;
 const ZOOM_STEP = 1.5;
@@ -28,14 +42,23 @@ const DRAG_THRESHOLD_PX = 4;
 interface Props {
   transport: Transport;
   track: TrackInfo;
+  transcription: Transcription;
+  onTranscribe: () => void;
 }
+
+const STAGE_LABEL = {
+  decoding: 'Opname voorbereiden',
+  model: 'Model laden',
+  analyse: 'Noten herkennen',
+  notes: 'Noten uitschrijven',
+} as const;
 
 /**
  * One shared time axis. Every lane (waveform now, notation and tab later) lives in
  * the same horizontally scrolling content box, so x = time × pixels-per-second
  * holds for all of them, and one playhead and loop region cut through all lanes.
  */
-export function Timeline({ transport, track }: Props) {
+export function Timeline({ transport, track, transcription, onTranscribe }: Props) {
   const { peaks, loop, loopEnabled, setLoop, seek, getTime } = transport;
   const duration = track.duration;
 
@@ -44,6 +67,8 @@ export function Timeline({ transport, track }: Props) {
   const rulerCanvas = useRef<HTMLCanvasElement>(null);
   const dimCanvas = useRef<HTMLCanvasElement>(null);
   const litCanvas = useRef<HTMLCanvasElement>(null);
+  const notesDimCanvas = useRef<HTMLCanvasElement>(null);
+  const notesLitCanvas = useRef<HTMLCanvasElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
 
   const [viewportW, setViewportW] = useState(0);
@@ -126,7 +151,19 @@ export function Timeline({ transport, track }: Props) {
     },
     [pps, peaks],
   );
+  const { notes } = transcription;
+  const noteLayout = useMemo(() => layoutNotes(notes ?? []), [notes]);
+  const drawNotesDim = useCallback<DrawFn>(
+    (ctx, scrollLeft, w, h) => drawNotes(ctx, 'dim', scrollLeft, w, h, pps, duration, noteLayout),
+    [pps, duration, noteLayout],
+  );
+  const drawNotesLit = useCallback<DrawFn>(
+    (ctx, scrollLeft, w, h) => drawNotes(ctx, 'lit', scrollLeft, w, h, pps, duration, noteLayout),
+    [pps, duration, noteLayout],
+  );
   useWindowedCanvas(rulerCanvas, scrollerRef, RULER_H, drawRulerLane);
+  useWindowedCanvas(notesDimCanvas, scrollerRef, NOTES_H, drawNotesDim);
+  useWindowedCanvas(notesLitCanvas, scrollerRef, NOTES_H, drawNotesLit);
   useWindowedCanvas(dimCanvas, scrollerRef, WAVE_H, drawDim);
   useWindowedCanvas(litCanvas, scrollerRef, WAVE_H, drawLit);
 
@@ -148,14 +185,13 @@ export function Timeline({ transport, track }: Props) {
 
     if (playheadRef.current) playheadRef.current.style.transform = `translate3d(${x}px,0,0)`;
 
-    if (litCanvas.current) {
-      const w = scroller.clientWidth;
-      const litW = clamp(x - scroller.scrollLeft, 0, w);
-      const clip = `inset(0 ${w - litW}px 0 0)`;
-      if (clip !== lastClip.current) {
-        litCanvas.current.style.clipPath = clip;
-        lastClip.current = clip;
-      }
+    const w = scroller.clientWidth;
+    const litW = clamp(x - scroller.scrollLeft, 0, w);
+    const clip = `inset(0 ${w - litW}px 0 0)`;
+    if (clip !== lastClip.current) {
+      if (litCanvas.current) litCanvas.current.style.clipPath = clip;
+      if (notesLitCanvas.current) notesLitCanvas.current.style.clipPath = clip;
+      lastClip.current = clip;
     }
   });
 
@@ -223,7 +259,13 @@ export function Timeline({ transport, track }: Props) {
           </Text>
         </Box>
 
-        <Flex align="center" gap="1">
+        <Flex align="center" gap="1" wrap="wrap">
+          <TranscribeControls
+            transcription={transcription}
+            onTranscribe={onTranscribe}
+            onExport={() => notes && downloadDocument(toDocument(notes, track.name, duration))}
+          />
+          <Box w="1px" h="5" bg="border" mx="1.5" aria-hidden="true" />
           <Hint label="Uitzoomen">
             <IconButton
               aria-label="Uitzoomen"
@@ -296,6 +338,27 @@ export function Timeline({ transport, track }: Props) {
               Opname
             </Text>
           </Flex>
+          <Flex
+            h={`${NOTES_H}px`}
+            direction="column"
+            align="center"
+            justify="center"
+            gap="1.5"
+            color="fg.muted"
+            borderTopWidth="1px"
+            borderColor="border"
+          >
+            <LuMusic size={20} color={palette.brass} />
+            <Text fontFamily="heading" fontStyle="italic" fontSize="md" color="fg">
+              Noten
+            </Text>
+            {notes && notes.length > 0 && (
+              <Text fontSize="xs" fontVariantNumeric="tabular-nums">
+                {noteName(Math.min(...notes.map((n) => n.midi)))}–
+                {noteName(Math.max(...notes.map((n) => n.midi)))}
+              </Text>
+            )}
+          </Flex>
         </Box>
 
         <Box
@@ -361,6 +424,34 @@ export function Timeline({ transport, track }: Props) {
                 aria-hidden="true"
                 css={{ filter: 'drop-shadow(0 0 6px rgba(240,180,90,0.28))' }}
               />
+
+              {/* notes lane */}
+              <Box
+                position="absolute"
+                top={`${RULER_H + WAVE_H}px`}
+                left="0"
+                right="0"
+                bottom="0"
+                borderTopWidth="1px"
+                borderColor="border"
+                css={{ background: 'linear-gradient(180deg, #160e09, #110a06)' }}
+              />
+              <chakra.canvas
+                ref={notesDimCanvas}
+                position="absolute"
+                top={`${RULER_H + WAVE_H}px`}
+                left="0"
+                aria-hidden="true"
+              />
+              <chakra.canvas
+                ref={notesLitCanvas}
+                position="absolute"
+                top={`${RULER_H + WAVE_H}px`}
+                left="0"
+                aria-hidden="true"
+                css={{ filter: 'drop-shadow(0 0 4px rgba(240,180,90,0.22))' }}
+              />
+              <NotesLaneMessage transcription={transcription} />
             </Box>
 
             {/* loop region */}
@@ -455,5 +546,94 @@ export function Timeline({ transport, track }: Props) {
         </Box>
       </Flex>
     </Box>
+  );
+}
+
+function TranscribeControls({
+  transcription,
+  onTranscribe,
+  onExport,
+}: {
+  transcription: Transcription;
+  onTranscribe: () => void;
+  onExport: () => void;
+}) {
+  const { status, busy, notes, cancel } = transcription;
+
+  if (busy) {
+    return (
+      <Hint label="Notenherkenning stoppen">
+        <IconButton aria-label="Notenherkenning stoppen" size="xs" variant="ghost" onClick={cancel}>
+          <LuX />
+        </IconButton>
+      </Hint>
+    );
+  }
+
+  return (
+    <>
+      <Button size="xs" variant="outline" colorPalette="brass" onClick={onTranscribe}>
+        <LuSparkles /> {status === 'done' ? 'Opnieuw herkennen' : 'Noten herkennen'}
+      </Button>
+      {notes && notes.length > 0 && (
+        <Hint label="Noten opslaan als JSON">
+          <IconButton aria-label="Noten opslaan als JSON" size="xs" variant="ghost" onClick={onExport}>
+            <LuDownload />
+          </IconButton>
+        </Hint>
+      )}
+    </>
+  );
+}
+
+/** Empty, busy and error states, centred in the visible part of the notes lane. */
+function NotesLaneMessage({ transcription }: { transcription: Transcription }) {
+  const { status, progress, notes, error, busy, backend } = transcription;
+  let text: string | null = null;
+  if (status === 'idle') text = 'Kies ‘Noten herkennen’ om de noten uit de opname te halen.';
+  else if (busy) {
+    const label = STAGE_LABEL[status as keyof typeof STAGE_LABEL];
+    text = status === 'analyse' ? `${label}… ${Math.round(progress * 100)}%` : `${label}…`;
+    if (status === 'analyse' && backend === 'cpu') text += ' Zonder grafische versnelling duurt dit langer.';
+  } else if (status === 'error') text = error;
+  else if (status === 'done' && notes?.length === 0) text = 'Geen noten gevonden in deze opname.';
+  if (!text) return null;
+
+  return (
+    <Flex
+      position="absolute"
+      top={`${RULER_H + WAVE_H}px`}
+      left="0"
+      right="0"
+      bottom="0"
+      direction="column"
+      align="center"
+      justify="center"
+      gap="2.5"
+      px="4"
+      pointerEvents="none"
+      zIndex={1}
+    >
+      <Text
+        fontSize="sm"
+        color={status === 'error' ? 'cherry.300' : 'fg.muted'}
+        textAlign="center"
+        role={status === 'error' ? 'alert' : 'status'}
+        fontVariantNumeric="tabular-nums"
+      >
+        {text}
+      </Text>
+      {busy && (
+        <Box w="min(280px, 70%)" h="3px" rounded="full" bg="whiteAlpha.100" overflow="hidden">
+          <Box
+            h="full"
+            bg="brass.400"
+            w={`${status === 'analyse' || status === 'notes' ? Math.max(2, progress * 100) : 2}%`}
+            transition="width 0.2s linear"
+            css={{ '@media (prefers-reduced-motion: reduce)': { transition: 'none' } }}
+          />
+        </Box>
+      )}
+    </Flex>
   );
 }
