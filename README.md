@@ -18,7 +18,32 @@ npm run preview  # de build lokaal bekijken
 Stack: Vite, React 19, TypeScript en Chakra UI 3. Lettertypen (Newsreader en
 Instrument Sans) komen via `@fontsource`, dus er wordt niets van externe servers geladen.
 
-## Wat het nu kan
+## Twee modi
+
+Bovenin schakel je tussen **Meespelen** (een opname bestuderen, hieronder) en **Techniek**, een
+oefenmachine voor toonladders en arpeggio's. Elke modus onthoudt zijn eigen stand; bij het wisselen
+stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespelen.
+
+### Techniek
+
+- Stel een oefening samen: type (toonladder, arpeggio of custom pattern), ladder of akkoord, grondtoon,
+  positie, noten per snaar (2, 3 of 4, alleen wat bij de ladder past), onderverdeling (kwarten, achtsten,
+  triolen, zestienden), tempo, richting (omhoog, omlaag, beide) en herhalingen (eindeloos of een aantal).
+- Ladders: majeur en de zes andere modi, pentatonisch majeur en mineur, harmonisch en melodisch mineur,
+  octatonisch (half–heel en heel–half) en heletoons. Arpeggio's: drieklanken, vierklanken, en vierklanken
+  met 9 of met 9 en 13. Alles is een lijst intervallen in `src/technique/theory.ts`.
+- Vingerzettingen worden uit de instellingen afgeleid: bij toonladders een vast aantal noten per snaar
+  van lage naar hoge E, met per snaar maximaal 5 frets rek; bij vier noten per snaar een slide met de
+  wijsvinger (pijltje op de hals, "sl." in de tab). Posities die bij symmetrische ladders dezelfde vorm
+  hebben, worden maar één keer aangeboden.
+- **Custom pattern**: toonladdergraden zoals 1, 2, 3, 7 (8 is de grondtoon een octaaf hoger). Het patroon
+  schuift stap voor stap door de vingerzetting; een stap die niet meer helemaal past, valt weg.
+- De notenbalk staat bovenaan; daaronder kies je **Tab** (tijd horizontaal, recht onder de noten) of
+  **Gitaarhals**. De noot die klinkt licht op in beide.
+- Geluid: een Karplus-Strong-snaar en een metronoom op de onderverdeling, allebei vooruit ingepland op de
+  Web Audio-klok. Voortellen (één maat), gitaar aan of uit, aparte volumes. Spatie speelt of stopt.
+
+## Meespelen
 
 - **Upload**: kies een bestand of sleep het ergens op het venster (WAV, MP3, M4A, OGG, FLAC, tot 15 minuten). Het bestand blijft in je browser.
 - **Golfvorm** met tijdlineaal. Het gespeelde deel licht op, de rest blijft gedempt.

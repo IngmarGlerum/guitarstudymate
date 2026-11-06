@@ -7,10 +7,12 @@ const RATE_STEP = 0.05;
  * Space play/pause · ←/→ ±1 s (Shift ±5 s) · Home to start/loop start
  * L loop on/off · [ ] loop start/end at playhead · , . slower/faster
  */
-export function useHotkeys(transport: Transport) {
+export function useHotkeys(transport: Transport, enabled = true) {
   const latest = useRef(transport);
+  const on = useRef(enabled);
   useEffect(() => {
     latest.current = transport;
+    on.current = enabled;
   });
 
   useEffect(() => {
@@ -23,7 +25,7 @@ export function useHotkeys(transport: Transport) {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || ignore(e.target)) return;
       const t = latest.current;
-      if (t.status !== 'ready') return;
+      if (!on.current || t.status !== 'ready') return;
 
       if (e.code === 'Space') {
         e.preventDefault();
@@ -73,7 +75,7 @@ export function useHotkeys(transport: Transport) {
     // A focused button would also activate on Space keyup, undoing our toggle.
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code !== 'Space' || ignore(e.target)) return;
-      if (latest.current.status === 'ready') e.preventDefault();
+      if (on.current && latest.current.status === 'ready') e.preventDefault();
     };
 
     window.addEventListener('keydown', onKeyDown);
