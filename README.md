@@ -26,6 +26,9 @@ Instrument Sans) komen via `@fontsource`, dus er wordt niets van externe servers
 - **Loop**: sleep over de golfvorm om een loop te maken, of pak de locators in de lineaal om hem bij te stellen.
 - **Snelheid** van 0,25× tot 2× met behoud van toonhoogte, plus presets.
 - **Zoom** met de knoppen of Ctrl/⌘ + scrollen, en een knop om de afspeelkop te laten volgen.
+- **Weergave**: kies in het menu welke lineaal je ziet, de **tijd**, de **maten** of allebei. De
+  maatlineaal toont maatnummers en tellen op het tempo dat je invult, en zet maatstreepjes in de
+  golfvorm en de pianorol: in kwarten, achtsten of zestienden. Je keuze wordt in de browser onthouden.
 - **Noten herkennen**: de knop boven de lanes laat [Basic Pitch](https://github.com/spotify/basic-pitch)
   in een worker de noten uit de opname halen. Ze verschijnen als pianorol in de notenlane onder de
   golfvorm, op dezelfde tijdas, met de zes open snaren als hulplijnen. Het gespeelde deel licht op.
@@ -76,7 +79,8 @@ src/
       LoopHandle.tsx       versleepbare loop-locators
       useWindowedCanvas.ts canvas ter grootte van het venster, tekent alleen wat zichtbaar is
     TransportBar.tsx       bediening onder de lane
-    NotationControls.tsx   tempo, tik, maatsoort, tel 1, drempel
+    NotationControls.tsx   tempo, tik, maatsoort, tel 1, drempel, stilte
+    timeline/ViewMenu.tsx  menu Weergave: lineaals en raster (voorkeur in viewPrefs.ts)
     UploadDropzone.tsx     lege toestand
   theme/                   Chakra-systeem, kleuren en texturen
   hooks/                   sneltoetsen, bestanden slepen, animatieframe

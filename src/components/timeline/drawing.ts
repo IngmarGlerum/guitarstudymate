@@ -2,7 +2,98 @@ import type { Peaks } from '../../audio/peaks';
 import { formatTime } from '../../lib/format';
 import { noteName, STANDARD_TUNING } from '../../transcription/notes';
 import type { DisplayNote } from '../../transcription/gate';
+import { barDuration, beatDuration, type Tempo } from '../../notation/tempo';
 import { palette } from '../../theme/palette';
+
+/** Subdivision of the bar grid: 4 = quarters, 8 = eighths, 16 = sixteenths. */
+export type GridDivision = 4 | 8 | 16;
+
+/** When set, lanes draw bar/beat lines instead of the seconds grid. */
+export interface BarGrid {
+  tempo: Tempo & { bpm: number };
+  division: GridDivision;
+}
+
+const MIN_LINE_GAP = 5; // px; finer lines are skipped when they would crowd
+
+/** Iterate grid positions in the visible window: level 0 = bar, 1 = beat, 2 = subdivision. */
+function forEachGridLine(
+  scrollLeft: number,
+  width: number,
+  pps: number,
+  duration: number,
+  grid: BarGrid,
+  visit: (x: number, level: 0 | 1 | 2, bar: number) => void,
+) {
+  const { tempo, division } = grid;
+  const perBeat = division / 4;
+  const step = beatDuration(tempo.bpm) / perBeat;
+  const perBar = tempo.beatsPerBar * perBeat;
+  const stepPx = step * pps;
+  const beatPx = beatDuration(tempo.bpm) * pps;
+  const t0 = scrollLeft / pps;
+  const t1 = (scrollLeft + width) / pps;
+  const first = Math.floor((Math.max(0, t0) - tempo.downbeat) / step);
+  for (let i = first; ; i++) {
+    const t = tempo.downbeat + i * step;
+    if (t > t1 || t > duration + 1e-6) break;
+    if (t < -1e-6) continue;
+    const inBar = ((i % perBar) + perBar) % perBar;
+    const level: 0 | 1 | 2 = inBar === 0 ? 0 : inBar % perBeat === 0 ? 1 : 2;
+    if (level === 2 && stepPx < MIN_LINE_GAP) continue;
+    if (level === 1 && beatPx < MIN_LINE_GAP) continue;
+    visit(Math.round(t * pps - scrollLeft), level, Math.floor(i / perBar));
+  }
+}
+
+/** Bar, beat and subdivision lines across a lane. */
+export function drawBarGrid(
+  ctx: CanvasRenderingContext2D,
+  scrollLeft: number,
+  width: number,
+  height: number,
+  pps: number,
+  duration: number,
+  grid: BarGrid,
+) {
+  const alpha = [0.15, 0.075, 0.04];
+  forEachGridLine(scrollLeft, width, pps, duration, grid, (x, level) => {
+    ctx.fillStyle = `rgba(241,230,204,${alpha[level]})`;
+    ctx.fillRect(x, 0, 1, height);
+  });
+}
+
+/** Bar ruler: bar numbers, beat and subdivision ticks. */
+export function drawBarRuler(
+  ctx: CanvasRenderingContext2D,
+  scrollLeft: number,
+  width: number,
+  height: number,
+  pps: number,
+  duration: number,
+  grid: BarGrid | null,
+) {
+  ctx.font = "500 11px 'Instrument Sans Variable', system-ui, sans-serif";
+  ctx.textBaseline = 'alphabetic';
+  if (!grid) {
+    ctx.fillStyle = palette.parchmentFaint;
+    ctx.fillText('Vul het tempo in voor de maatlineaal', 8, height - 9);
+    return;
+  }
+  // label every n-th bar so numbers never collide
+  const barPx = barDuration(grid.tempo) * pps;
+  const every = [1, 2, 4, 8, 16, 32, 64].find((n) => n * barPx >= 26) ?? 128;
+  const tickH = [height - 4, 8, 4];
+  const alpha = [0.55, 0.4, 0.22];
+  forEachGridLine(scrollLeft, width, pps, duration, grid, (x, level, bar) => {
+    ctx.fillStyle = `rgba(241,230,204,${alpha[level]})`;
+    ctx.fillRect(x, height - tickH[level], 1, tickH[level]);
+    if (level === 0 && bar >= 0 && bar % every === 0) {
+      ctx.fillStyle = palette.parchmentMuted;
+      ctx.fillText(String(bar + 1), x + 4, 13);
+    }
+  });
+}
 
 /** [major tick in seconds, minor subdivisions] */
 const TICKS: ReadonlyArray<readonly [number, number]> = [
@@ -94,12 +185,14 @@ export function drawWaveform(
   height: number,
   pps: number,
   peaks: Peaks,
+  grid: BarGrid | null = null,
 ) {
   const mid = height / 2;
   const amp = mid - 8;
 
   if (tone === 'dim') {
-    drawGrid(ctx, scrollLeft, width, height, pps, peaks.duration);
+    if (grid) drawBarGrid(ctx, scrollLeft, width, height, pps, peaks.duration, grid);
+    else drawGrid(ctx, scrollLeft, width, height, pps, peaks.duration);
     ctx.fillStyle = 'rgba(241,230,204,0.07)';
     ctx.fillRect(0, Math.round(mid), width, 1);
   }
@@ -186,6 +279,7 @@ export function drawNotes(
   pps: number,
   duration: number,
   layout: NoteLayout,
+  grid: BarGrid | null = null,
 ) {
   const pad = 6;
   const rows = layout.high - layout.low + 1;
@@ -193,7 +287,8 @@ export function drawNotes(
   const yOf = (midi: number) => pad + (layout.high - midi) * rowH;
 
   if (tone === 'dim') {
-    drawGrid(ctx, scrollLeft, width, height, pps, duration);
+    if (grid) drawBarGrid(ctx, scrollLeft, width, height, pps, duration, grid);
+    else drawGrid(ctx, scrollLeft, width, height, pps, duration);
     // the six open strings as faint "strings" across the lane
     ctx.font = "500 10px 'Instrument Sans Variable', system-ui, sans-serif";
     ctx.textBaseline = 'middle';

@@ -64,6 +64,11 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
   inferentie stil hangen. De worker vervangt die functie daarom door gewone `setTimeout`. Niet weghalen.
 - Waakhond: als het eerste venster op WebGL niet binnen 30 s klaar is, start de hook opnieuw op de CPU.
 - Laanvolgorde: Opname, Notatie, Noten (pianorol). De tab-lane komt onder de notatie.
+- Lineaals: tijd (30 px) en maten (26 px) boven elkaar, aan of uit via het menu Weergave; minstens één
+  staat aan (de loop-locators zitten in de lineaal). Alle lane-posities volgen uit de totale hoogte.
+  Staat de maatlineaal aan en is er een tempo, dan tekenen golfvorm en pianorol het maatraster
+  (`drawBarGrid`, kwarten/achtsten/zestienden) in plaats van het secondenraster. Tempo, maat en tel 1
+  staan altijd in beeld, ook zonder herkende noten.
 - Notatie: maat k begint op `downbeat + k × maatduur`, ook negatieve k (opmaat). Elke noot staat op
   `maatbegin + BAR_PAD + tick/maatticks × (maatbreedte − BAR_PAD)`; daarna wordt de TickContext
   bijgeschoven tot `getNoteHeadBeginX()` precies daar valt. Sleutel en maatsoort staan in de kopkolom

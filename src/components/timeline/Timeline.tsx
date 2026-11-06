@@ -30,18 +30,25 @@ import type { Transcription } from '../../transcription/useTranscription';
 import type { Notation } from '../../notation/useNotation';
 import { barDuration } from '../../notation/tempo';
 import { NotationControls } from '../NotationControls';
-import { drawNotes, drawRuler, drawWaveform, layoutNotes } from './drawing';
+import {
+  drawBarRuler,
+  drawNotes,
+  drawRuler,
+  drawWaveform,
+  layoutNotes,
+  type BarGrid,
+} from './drawing';
+import { ViewMenu } from './ViewMenu';
+import { useViewPrefs } from './viewPrefs';
 import { drawNotation, drawStaffHeader, MIN_BAR_PX } from './drawNotation';
 import { LoopHandle } from './LoopHandle';
 import { useWindowedCanvas, type DrawFn } from './useWindowedCanvas';
 
-export const RULER_H = 30;
+export const TIME_RULER_H = 30;
+export const BAR_RULER_H = 26;
 export const WAVE_H = 184;
 export const NOTATION_H = 176;
 export const NOTES_H = 196;
-const NOTATION_TOP = RULER_H + WAVE_H;
-const NOTES_TOP = NOTATION_TOP + NOTATION_H;
-const LANE_H = NOTES_TOP + NOTES_H;
 const END_PAD = 28;
 const MAX_PPS = 800;
 const ZOOM_STEP = 1.5;
@@ -70,10 +77,25 @@ const STAGE_LABEL = {
 export function Timeline({ transport, track, transcription, onTranscribe, notation }: Props) {
   const { peaks, loop, loopEnabled, setLoop, seek, getTime } = transport;
   const duration = track.duration;
+  const { tempo, bars } = notation;
+
+  // rulers stack at the top; every lane below moves with their total height
+  const [view, setView] = useViewPrefs();
+  const timeH = view.timeRuler ? TIME_RULER_H : 0;
+  const barH = view.barRuler ? BAR_RULER_H : 0;
+  const RULER_H = timeH + barH;
+  const NOTATION_TOP = RULER_H + WAVE_H;
+  const NOTES_TOP = NOTATION_TOP + NOTATION_H;
+  const LANE_H = NOTES_TOP + NOTES_H;
+  const grid = useMemo<BarGrid | null>(
+    () => (view.barRuler && tempo ? { tempo, division: view.division } : null),
+    [view.barRuler, view.division, tempo],
+  );
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const rulerCanvas = useRef<HTMLCanvasElement>(null);
+  const barRulerCanvas = useRef<HTMLCanvasElement>(null);
   const dimCanvas = useRef<HTMLCanvasElement>(null);
   const litCanvas = useRef<HTMLCanvasElement>(null);
   const notesDimCanvas = useRef<HTMLCanvasElement>(null);
@@ -145,15 +167,25 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
   }, [zoomTo]);
 
   // ---- canvases ----
+  const showTime = view.timeRuler;
+  const showBars = view.barRuler;
   const drawRulerLane = useCallback<DrawFn>(
-    (ctx, scrollLeft, w, h) => drawRuler(ctx, scrollLeft, w, h, pps, duration),
-    [pps, duration],
+    (ctx, scrollLeft, w, h) => {
+      if (showTime) drawRuler(ctx, scrollLeft, w, h, pps, duration);
+    },
+    [pps, duration, showTime],
+  );
+  const drawBarRulerLane = useCallback<DrawFn>(
+    (ctx, scrollLeft, w, h) => {
+      if (showBars) drawBarRuler(ctx, scrollLeft, w, h, pps, duration, grid);
+    },
+    [pps, duration, showBars, grid],
   );
   const drawDim = useCallback<DrawFn>(
     (ctx, scrollLeft, w, h) => {
-      if (peaks) drawWaveform(ctx, 'dim', scrollLeft, w, h, pps, peaks);
+      if (peaks) drawWaveform(ctx, 'dim', scrollLeft, w, h, pps, peaks, grid);
     },
-    [pps, peaks],
+    [pps, peaks, grid],
   );
   const drawLit = useCallback<DrawFn>(
     (ctx, scrollLeft, w, h) => {
@@ -164,14 +196,14 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
   const { notes } = transcription;
   const noteLayout = useMemo(() => layoutNotes(notation.display), [notation.display]);
   const drawNotesDim = useCallback<DrawFn>(
-    (ctx, scrollLeft, w, h) => drawNotes(ctx, 'dim', scrollLeft, w, h, pps, duration, noteLayout),
-    [pps, duration, noteLayout],
+    (ctx, scrollLeft, w, h) =>
+      drawNotes(ctx, 'dim', scrollLeft, w, h, pps, duration, noteLayout, grid),
+    [pps, duration, noteLayout, grid],
   );
   const drawNotesLit = useCallback<DrawFn>(
     (ctx, scrollLeft, w, h) => drawNotes(ctx, 'lit', scrollLeft, w, h, pps, duration, noteLayout),
     [pps, duration, noteLayout],
   );
-  const { tempo, bars } = notation;
   const drawNotationLane = useCallback<DrawFn>(
     (ctx, scrollLeft, w, h) => {
       if (tempo) drawNotation(ctx, scrollLeft, w, h, pps, duration, tempo, bars);
@@ -179,7 +211,8 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
     [pps, duration, tempo, bars],
   );
   useWindowedCanvas(notationCanvas, scrollerRef, NOTATION_H, drawNotationLane);
-  useWindowedCanvas(rulerCanvas, scrollerRef, RULER_H, drawRulerLane);
+  useWindowedCanvas(rulerCanvas, scrollerRef, TIME_RULER_H, drawRulerLane);
+  useWindowedCanvas(barRulerCanvas, scrollerRef, BAR_RULER_H, drawBarRulerLane);
   useWindowedCanvas(notesDimCanvas, scrollerRef, NOTES_H, drawNotesDim);
   useWindowedCanvas(notesLitCanvas, scrollerRef, NOTES_H, drawNotesLit);
   useWindowedCanvas(dimCanvas, scrollerRef, WAVE_H, drawDim);
@@ -284,6 +317,7 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
             onExport={() => downloadDocument(toDocument(notation.kept, track.name, duration))}
           />
           <Box w="1px" h="5" bg="border" mx="1.5" aria-hidden="true" />
+          <ViewMenu prefs={view} onChange={setView} />
           <Hint label="Uitzoomen">
             <IconButton
               aria-label="Uitzoomen"
@@ -332,9 +366,7 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
         </Flex>
       </Flex>
 
-      {notes && notes.length > 0 && (
-        <NotationControls notation={notation} getTime={getTime} totalNotes={notes.length} />
-      )}
+      <NotationControls notation={notation} getTime={getTime} totalNotes={notes?.length ?? 0} />
 
       <Flex align="stretch">
         {/* lane header, where the notation and tab lanes will get their own */}
@@ -346,7 +378,26 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
           borderColor="border"
           bg="bg.subtle"
         >
-          <Box h={`${RULER_H}px`} borderBottomWidth="1px" borderColor="border" />
+          <Box h={`${RULER_H}px`} borderBottomWidth="1px" borderColor="border">
+            {showTime && (
+              <Flex h={`${timeH}px`} align="center" px="3" fontSize="xs" color="fg.muted">
+                Tijd
+              </Flex>
+            )}
+            {showBars && (
+              <Flex
+                h={`${barH}px`}
+                align="center"
+                px="3"
+                fontSize="xs"
+                color="fg.muted"
+                borderTopWidth={showTime ? '1px' : '0'}
+                borderColor="border"
+              >
+                Maten
+              </Flex>
+            )}
+          </Box>
           <Flex
             h={`${WAVE_H}px`}
             direction="column"
@@ -425,11 +476,30 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
                     'linear-gradient(180deg, #1e140d, #120b07)',
                 }}
               />
+              {showTime && showBars && (
+                <Box
+                  position="absolute"
+                  top={`${timeH}px`}
+                  left="0"
+                  right="0"
+                  h="1px"
+                  bg="border"
+                />
+              )}
               <chakra.canvas
                 ref={rulerCanvas}
                 position="absolute"
                 top="0"
                 left="0"
+                display={showTime ? 'block' : 'none'}
+                aria-hidden="true"
+              />
+              <chakra.canvas
+                ref={barRulerCanvas}
+                position="absolute"
+                top={`${timeH}px`}
+                left="0"
+                display={showBars ? 'block' : 'none'}
                 aria-hidden="true"
               />
               <chakra.canvas
@@ -467,6 +537,7 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
                 aria-hidden="true"
               />
               <NotationLaneMessage
+                top={NOTATION_TOP}
                 hasNotes={(notes?.length ?? 0) > 0}
                 hasTempo={tempo !== null}
                 tooNarrow={tempo !== null && barDuration(tempo) * pps < MIN_BAR_PX}
@@ -498,7 +569,7 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
                 aria-hidden="true"
                 css={{ filter: 'drop-shadow(0 0 4px rgba(240,180,90,0.22))' }}
               />
-              <NotesLaneMessage transcription={transcription} />
+              <NotesLaneMessage transcription={transcription} top={NOTES_TOP} />
             </Box>
 
             {/* loop region */}
@@ -634,7 +705,7 @@ function TranscribeControls({
 }
 
 /** Empty, busy and error states, centred in the visible part of the notes lane. */
-function NotesLaneMessage({ transcription }: { transcription: Transcription }) {
+function NotesLaneMessage({ transcription, top }: { transcription: Transcription; top: number }) {
   const { status, progress, notes, error, busy, backend } = transcription;
   let text: string | null = null;
   if (status === 'idle') text = 'Kies ‘Noten herkennen’ om de noten uit de opname te halen.';
@@ -649,7 +720,7 @@ function NotesLaneMessage({ transcription }: { transcription: Transcription }) {
   return (
     <Flex
       position="absolute"
-      top={`${NOTES_TOP}px`}
+      top={`${top}px`}
       left="0"
       right="0"
       bottom="0"
@@ -686,10 +757,12 @@ function NotesLaneMessage({ transcription }: { transcription: Transcription }) {
 }
 
 function NotationLaneMessage({
+  top,
   hasNotes,
   hasTempo,
   tooNarrow,
 }: {
+  top: number;
   hasNotes: boolean;
   hasTempo: boolean;
   tooNarrow: boolean;
@@ -705,7 +778,7 @@ function NotationLaneMessage({
   return (
     <Flex
       position="absolute"
-      top={`${NOTATION_TOP}px`}
+      top={`${top}px`}
       left="0"
       right="0"
       h={`${NOTATION_H}px`}

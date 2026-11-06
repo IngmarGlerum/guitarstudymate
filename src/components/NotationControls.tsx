@@ -24,7 +24,10 @@ interface Props {
   totalNotes: number;
 }
 
-/** Tempo, meter, beat 1 and strength threshold for the notation lane. */
+/**
+ * Tempo, meter and beat 1 (always: the bar ruler needs them too), plus the strength
+ * threshold and silence gate once there are notes.
+ */
 export function NotationControls({ notation, getTime, totalNotes }: Props) {
   const {
     settings,
@@ -66,6 +69,8 @@ export function NotationControls({ notation, getTime, totalNotes }: Props) {
           min={BPM_MIN}
           max={BPM_MAX}
           value={bpmText}
+          // empty means "no tempo yet", not an error; only flag numbers out of range
+          invalid={bpmText !== '' && !(Number(bpmText) >= BPM_MIN && Number(bpmText) <= BPM_MAX)}
           onValueChange={(d) => {
             setBpmText(d.value);
             if (d.value === '') setBpm(null);
@@ -127,6 +132,8 @@ export function NotationControls({ notation, getTime, totalNotes }: Props) {
         )}
       </Flex>
 
+      {totalNotes > 0 && (
+        <>
       <Flex align="center" gap="3" flex="1" minW="220px" maxW="360px">
         <Label>Drempel</Label>
         <Slider.Root
@@ -187,6 +194,8 @@ export function NotationControls({ notation, getTime, totalNotes }: Props) {
       <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" whiteSpace="nowrap">
         {keptCount} van {totalNotes} noten
       </Text>
+        </>
+      )}
     </Flex>
   );
 }
