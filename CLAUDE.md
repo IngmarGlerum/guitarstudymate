@@ -28,7 +28,8 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
 3. Klaar: notatielane (VexFlow 4.2.5, `vexflow/bravura`, lettertype zit in het pakket) onder de
    waveform. Tempo, maatsoort en tel 1 komen van de gebruiker (invullen of tikken, nooit detecteren).
    `src/notation/quantize.ts` zet noten op zestienden, één stem met akkoorden, rusten en overbindingen.
-   Een sterktedrempel (standaard 0,4) houdt zwakke noten (boventonen) uit de notatie.
+   Doorklinken over een volgende aanslag heen wordt een l.v.-boogje (`Piece.ring`) tot het echte einde,
+   geen tweede stem. Een sterktedrempel (standaard 0,35) houdt zwakke noten (boventonen) uit de notatie.
 4. Tab-lane: MIDI naar (snaar, fret) met dynamic programming (Viterbi). Kosten voor
    handverplaatsing, spanwijdte (maximaal ongeveer 4 frets) en afstand tot een voorkeurspositie.
    Tuning en capo zijn parameters.
@@ -87,7 +88,10 @@ stekkers in messing, de ES-335 sunburst en de tweed Fender-versterker.
   JS-arrays (ruim 100 MB bij 15 minuten). Oplossing: eigen inferentielus met `Float32Array`'s.
 - Boventonen komen als losse zachte noten mee. Een filter op toonafstand (octaaf, duodecime) werkte niet:
   op het testbestand had de echte E3 in het E-mineurakkoord dezelfde sterkteverhouding tot E2 als de
-  boventoon E4 tot E3. Daarom een instelbare drempel. De standaard 0,4 is op één synthetisch bestand gekozen.
+  boventoon E4 tot E3. Daarom een instelbare drempel. De standaard 0,35 is gekozen op twee synthetische
+  bestanden; op het arpeggiobestand zat een gespeelde noot op 0,36 en reikten boventonen tot 0,36.
+- Gemeld door de eigenaar op een echte opname: noten in de pianorol lijken langer dan de golfvorm. Op de
+  synthetische bestanden niet gereproduceerd (lengtes binnen ongeveer 0,1 s). Nog uitzoeken met die opname.
 - Stap 3 is getest in headless Chromium op hetzelfde bestand: 4/4 en 3/4, tikken, inzoomen, telefoonbreedte.
   Nootkoppen vallen binnen een paar pixels op hun aanslag. Niet geprobeerd: lange stukken, snelle loopjes,
   echte opnames.

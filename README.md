@@ -102,8 +102,9 @@ Ze staan in `src/theme/palette.ts` en worden zowel door Chakra als door de canva
 - Basic Pitch geeft ook boventonen als losse, zachtere noten (vaak een octaaf of duodecime boven de echte noot). Die worden nog niet weggefilterd; dat hoort bij het handmatig corrigeren.
 - Geheugen: de bibliotheek houdt de modeluitvoer vast als geneste JS-arrays (88 waarden per frame, 86 frames per seconde). De contours (voor pitch bends) slaan we over, maar frames en onsets samen kosten bij 15 minuten nog ruim 100 MB in de worker.
 - Zonder bruikbare WebGL valt de worker terug op de CPU. Dat is ongeveer anderhalf keer zo traag als realtime; 15 minuten duurt dan lang.
-- De notatie is één stem: noten die op dezelfde zestiende beginnen worden een akkoord, en een noot of
-  akkoord stopt bij de volgende aanslag (doorklinkende snaren worden afgekapt). Geen triolen, geen
+- De notatie is één stem: noten die op dezelfde zestiende beginnen worden een akkoord, en het ritme volgt
+  de aanslagen. Klinkt een noot door over de volgende aanslag heen (let ring), dan staat hij genoteerd tot
+  die aanslag en loopt er een open boogje (l.v.) tot waar hij echt ophoudt. Een tweede stem is er niet. Geen triolen, geen
   voortekening (alles in C met kruizen), alleen x/4-maatsoorten. Bij een vast tempo; tempowisselingen kan het niet.
 - Is een maat smaller dan 120 pixels, dan zie je alleen de notenbalk en vraagt de lane om in te zoomen.
 - Het model (ongeveer 900 kB, Apache-2.0) staat in `public/models/basic-pitch/`. De worker is ongeveer 1,8 MB en wordt pas geladen bij de eerste herkenning.

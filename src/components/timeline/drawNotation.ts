@@ -128,7 +128,13 @@ export function drawNotation(
     for (const n of notes) n.setContext(vf).draw();
     for (const b of beams) b.setStyle(noteStyle).setContext(vf).draw();
 
-    bar.pieces.forEach((piece, i) => drawn.push({ piece, note: notes[i] }));
+    bar.pieces.forEach((piece, i) => {
+      drawn.push({ piece, note: notes[i] });
+      if (piece.ring) {
+        const xOf = (tick: number) => x0 + BAR_PAD + (tick / barTicks) * (barW - BAR_PAD);
+        drawLetRing(ctx, notes[i], piece, xOf);
+      }
+    });
   }
 
   // ties, including those across bar lines (only when both ends are visible)
@@ -163,4 +169,34 @@ export function drawNotation(
   head.addModifier(new Clef('treble', 'default', '8vb').setStyle(glyphStyle));
   head.addModifier(new TimeSignature(`${tempo.beatsPerBar}/4`).setStyle(glyphStyle));
   head.setContext(vf).draw();
+}
+
+/**
+ * Let ring (l.v.): an open tie from each notehead that keeps sounding, running on
+ * the time axis to where the note stops, so sustain over later notes stays visible.
+ */
+function drawLetRing(
+  ctx: CanvasRenderingContext2D,
+  note: StaveNote,
+  piece: Piece,
+  xOf: (tick: number) => number,
+) {
+  const ys = note.getYs();
+  const below = note.getStemDirection() === 1; // stem up -> arc under the noteheads
+  const dir = below ? 1 : -1;
+  const xs = note.getNoteHeadEndX() + 2;
+  ctx.fillStyle = palette.parchmentMuted;
+  piece.ring!.forEach((ring, k) => {
+    if (ring <= 0) return;
+    const xe = xOf(piece.tick + piece.ticks + ring) - 2;
+    if (xe - xs < 6) return;
+    const y = ys[k] + dir * 4;
+    const mid = (xs + xe) / 2;
+    const lift = Math.min(7, 2.5 + (xe - xs) * 0.04);
+    ctx.beginPath();
+    ctx.moveTo(xs, y);
+    ctx.quadraticCurveTo(mid, y + dir * lift, xe, y);
+    ctx.quadraticCurveTo(mid, y + dir * (lift - 1.6), xs, y);
+    ctx.fill();
+  });
 }

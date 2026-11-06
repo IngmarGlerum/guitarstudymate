@@ -5,11 +5,11 @@ import { BPM_MAX, BPM_MIN, createTapper, type Tempo } from './tempo';
 
 /**
  * Notes weaker than this are left out of the notation (they stay visible, dimmed,
- * in the piano roll). Basic Pitch reports overtones as separate, weaker notes; on our
- * synthetic test file they were all below 0.37 and the played notes above 0.41.
- * That is one synthetic file, so the user can change it.
+ * in the piano roll). Basic Pitch reports overtones as separate, weaker notes, but
+ * played notes can be just as weak: on our two synthetic test files ghosts reached
+ * 0.36 and one played note was 0.36. No value separates them, so the user can change it.
  */
-export const DEFAULT_MIN_STRENGTH = 0.4;
+export const DEFAULT_MIN_STRENGTH = 0.35;
 
 export interface NotationSettings {
   bpm: number | null;
