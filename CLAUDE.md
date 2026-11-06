@@ -95,7 +95,8 @@ stekkers in messing, de ES-335 sunburst en de tweed Fender-versterker.
 - Echte opname van de eigenaar (droge riff in E mineur, 95 BPM, 10 s, niet in de repo): spelen zat tussen −1
   en −13 dB, de rusttellen op −25 tot −31 dB met een zachte echo (dezelfde toonhoogtes, 0,557 s later).
   Basic Pitch hoorde die echo: basnoten liepen door tot in de rust en er kwamen losse noten in de rusttel.
-  Met de stiltegrens van −20 dB vallen die 20 van de 74 noten weg en worden de basnoten ingekort. De grens is
+  Met de stiltegrens van −20 dB vallen 18 van de 74 noten weg (en 2 door de sterktedrempel) en worden
+  de basnoten ingekort. De grens is
   op deze ene opname gekozen; bij galmige opnames of een zacht gespeeld stuk moet hij omlaag.
 - Stap 3 is getest in headless Chromium op hetzelfde bestand: 4/4 en 3/4, tikken, inzoomen, telefoonbreedte.
   Nootkoppen vallen binnen een paar pixels op hun aanslag. Niet geprobeerd: lange stukken, snelle loopjes,
