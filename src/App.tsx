@@ -23,7 +23,7 @@ export default function App() {
   const { status, error, track, load, fail } = transport;
   const transcription = useTranscription();
   const { reset: resetTranscription, start: startTranscription } = transcription;
-  const notation = useNotation(transcription.notes);
+  const notation = useNotation(transcription.notes, transcription.envelope);
   const { reset: resetNotation } = notation;
   const fileRef = useRef<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);

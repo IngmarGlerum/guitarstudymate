@@ -1,7 +1,7 @@
 import type { Peaks } from '../../audio/peaks';
 import { formatTime } from '../../lib/format';
 import { noteName, STANDARD_TUNING } from '../../transcription/notes';
-import type { NoteEvent } from '../../transcription/types';
+import type { DisplayNote } from '../../transcription/gate';
 import { palette } from '../../theme/palette';
 
 /** [major tick in seconds, minor subdivisions] */
@@ -135,7 +135,7 @@ export function drawWaveform(
 
 /** Pitch window of the notes lane plus a lookup helper for the visible slice. */
 export interface NoteLayout {
-  notes: NoteEvent[];
+  notes: DisplayNote[];
   low: number;
   high: number;
   /** longest note, so the visible slice can start a little early */
@@ -146,7 +146,7 @@ const GUITAR_LOW: number = STANDARD_TUNING[0];
 const GUITAR_HIGH: number = 76; // E5, 12th fret on the high E string
 const MIN_SPAN = 24;
 
-export function layoutNotes(notes: NoteEvent[]): NoteLayout {
+export function layoutNotes(notes: DisplayNote[]): NoteLayout {
   let low = GUITAR_LOW;
   let high = GUITAR_HIGH;
   let maxDuration = 0;
@@ -162,7 +162,7 @@ export function layoutNotes(notes: NoteEvent[]): NoteLayout {
 }
 
 /** first index whose start is >= t (notes are sorted by start) */
-function lowerBound(notes: NoteEvent[], t: number) {
+function lowerBound(notes: DisplayNote[], t: number) {
   let lo = 0;
   let hi = notes.length;
   while (lo < hi) {
@@ -186,7 +186,6 @@ export function drawNotes(
   pps: number,
   duration: number,
   layout: NoteLayout,
-  minStrength = 0,
 ) {
   const pad = 6;
   const rows = layout.high - layout.low + 1;
@@ -227,8 +226,8 @@ export function drawNotes(
     const w = Math.max(2, n.duration * pps - 1);
     const y = yOf(n.midi);
 
-    // below the notation threshold: outline only, never lit
-    if (n.amplitude < minStrength) {
+    // left out of the notation: outline only, never lit
+    if (n.muted) {
       if (tone === 'lit') continue;
       ctx.strokeStyle = 'rgba(168,147,90,0.45)';
       ctx.lineWidth = 1;

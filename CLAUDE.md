@@ -28,7 +28,10 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
 3. Klaar: notatielane (VexFlow 4.2.5, `vexflow/bravura`, lettertype zit in het pakket) onder de
    waveform. Tempo, maatsoort en tel 1 komen van de gebruiker (invullen of tikken, nooit detecteren).
    `src/notation/quantize.ts` zet noten op zestienden, één stem met akkoorden, rusten en overbindingen.
-   Een sterktedrempel (standaard 0,4) houdt zwakke noten (boventonen) uit de notatie.
+   Doorklinken over een volgende aanslag heen wordt een l.v.-boogje (`Piece.ring`) tot het echte einde,
+   geen tweede stem. Een sterktedrempel (standaard 0,35) houdt zwakke noten (boventonen) uit de notatie.
+   Een stiltegrens (`src/transcription/gate.ts`, standaard −20 dB onder de piek, RMS per 10 ms uit de
+   worker) laat noten weg die in stilte beginnen en kort noten in tot waar de stilte begint.
 4. Tab-lane: MIDI naar (snaar, fret) met dynamic programming (Viterbi). Kosten voor
    handverplaatsing, spanwijdte (maximaal ongeveer 4 frets) en afstand tot een voorkeurspositie.
    Tuning en capo zijn parameters.
@@ -87,7 +90,14 @@ stekkers in messing, de ES-335 sunburst en de tweed Fender-versterker.
   JS-arrays (ruim 100 MB bij 15 minuten). Oplossing: eigen inferentielus met `Float32Array`'s.
 - Boventonen komen als losse zachte noten mee. Een filter op toonafstand (octaaf, duodecime) werkte niet:
   op het testbestand had de echte E3 in het E-mineurakkoord dezelfde sterkteverhouding tot E2 als de
-  boventoon E4 tot E3. Daarom een instelbare drempel. De standaard 0,4 is op één synthetisch bestand gekozen.
+  boventoon E4 tot E3. Daarom een instelbare drempel. De standaard 0,35 is gekozen op twee synthetische
+  bestanden; op het arpeggiobestand zat een gespeelde noot op 0,36 en reikten boventonen tot 0,36.
+- Echte opname van de eigenaar (droge riff in E mineur, 95 BPM, 10 s, `samples/guitar-riff-e-minor-95bpm-dry.mp3`): spelen zat tussen −1
+  en −13 dB, de rusttellen op −25 tot −31 dB met een zachte echo (dezelfde toonhoogtes, 0,557 s later).
+  Basic Pitch hoorde die echo: basnoten liepen door tot in de rust en er kwamen losse noten in de rusttel.
+  Met de stiltegrens van −20 dB vallen 18 van de 74 noten weg (en 2 door de sterktedrempel) en worden
+  de basnoten ingekort. De grens is
+  op deze ene opname gekozen; bij galmige opnames of een zacht gespeeld stuk moet hij omlaag.
 - Stap 3 is getest in headless Chromium op hetzelfde bestand: 4/4 en 3/4, tikken, inzoomen, telefoonbreedte.
   Nootkoppen vallen binnen een paar pixels op hun aanslag. Niet geprobeerd: lange stukken, snelle loopjes,
   echte opnames.
