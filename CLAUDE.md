@@ -92,7 +92,7 @@ stekkers in messing, de ES-335 sunburst en de tweed Fender-versterker.
   op het testbestand had de echte E3 in het E-mineurakkoord dezelfde sterkteverhouding tot E2 als de
   boventoon E4 tot E3. Daarom een instelbare drempel. De standaard 0,35 is gekozen op twee synthetische
   bestanden; op het arpeggiobestand zat een gespeelde noot op 0,36 en reikten boventonen tot 0,36.
-- Echte opname van de eigenaar (droge riff in E mineur, 95 BPM, 10 s, niet in de repo): spelen zat tussen −1
+- Echte opname van de eigenaar (droge riff in E mineur, 95 BPM, 10 s, `samples/guitar-riff-e-minor-95bpm-dry.mp3`): spelen zat tussen −1
   en −13 dB, de rusttellen op −25 tot −31 dB met een zachte echo (dezelfde toonhoogtes, 0,557 s later).
   Basic Pitch hoorde die echo: basnoten liepen door tot in de rust en er kwamen losse noten in de rusttel.
   Met de stiltegrens van −20 dB vallen 18 van de 74 noten weg (en 2 door de sterktedrempel) en worden
