@@ -48,8 +48,13 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
 Modus Techniek (oefenmachine), volgens het requirementsdocument "Guitar Study Mate – Requirements
 Oefenmachine" (claude.ai/artifact/UwC4ARkj4LRDs7kxjiMw9Q):
 - Klaar: instellingen, ladders en arpeggio's, posities en vingerzettingen, custom pattern, notenbalk met
-  Tab of Gitaarhals, metronoom en Karplus-Strong-geluid, voortellen, volumes, modusschakelaar.
-- Nog te doen: presets opslaan, laden, exporteren en importeren (sectie 8).
+  Tab of Gitaarhals, metronoom en Karplus-Strong-geluid, voortellen, volumes, modusschakelaar, presets
+  (`technique/presets.ts`: localStorage, export/import als `{ format: "guitar-study-mate/presets",
+  version: 1, presets }`, dezelfde naam vervangt, instellingen worden bij inlezen genormaliseerd).
+- Nog niet: één echt gedeelde speler tussen de modi, Tab/Gitaarhals in Meespelen (wacht op de tab-lane),
+  gesamplede gitaar. De open vragen uit sectie 13 zijn niet beantwoord; gekozen is: kwarten, achtsten,
+  triolen, zestienden; vast tempo; positie als "nummer · vanaf noot (snaar, fret)"; patroon 1–15, maximaal
+  16 getallen, herhalingen toegestaan; een patroon wordt mee opgeslagen in de preset.
 
 ## Architectuurregels
 
