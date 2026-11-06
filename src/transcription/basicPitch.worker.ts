@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import * as tf from '@tensorflow/tfjs';
 import { BasicPitch, noteFramesToTime, outputToNotesPoly } from '@spotify/basic-pitch';
-import type { NoteEvent, WorkerRequest, WorkerResponse } from './types';
+import { TRANSCRIBE_RATE, type Envelope, type NoteEvent, type WorkerRequest, type WorkerResponse } from './types';
 
 /**
  * Basic Pitch decoding settings, tuned for guitar. The Python defaults are
@@ -39,10 +39,27 @@ async function pickBackend(forced?: string): Promise<string> {
   throw new Error('no TensorFlow.js backend available');
 }
 
+/** 10 ms RMS frames, enough to see where playing stops and a rest begins. */
+const ENVELOPE_HOP = Math.round(TRANSCRIBE_RATE / 100);
+
+function computeEnvelope(samples: Float32Array): Envelope {
+  const frames = Math.ceil(samples.length / ENVELOPE_HOP);
+  const rms = new Float32Array(frames);
+  for (let f = 0; f < frames; f++) {
+    const start = f * ENVELOPE_HOP;
+    const end = Math.min(samples.length, start + ENVELOPE_HOP);
+    let sum = 0;
+    for (let i = start; i < end; i++) sum += samples[i] * samples[i];
+    rms[f] = Math.sqrt(sum / Math.max(1, end - start));
+  }
+  return { rms, rate: TRANSCRIBE_RATE / ENVELOPE_HOP };
+}
+
 let model: Promise<tf.GraphModel> | null = null;
 
 async function run({ samples, modelUrl, backend: forced }: WorkerRequest) {
   post({ type: 'stage', stage: 'model' });
+  const envelope = computeEnvelope(samples);
   const backend = await pickBackend(forced);
   model ??= tf.loadGraphModel(modelUrl);
   const basicPitch = new BasicPitch(model);
@@ -94,7 +111,7 @@ async function run({ samples, modelUrl, backend: forced }: WorkerRequest) {
           }))
           .sort((a, b) => a.start - b.start || a.midi - b.midi);
 
-  post({ type: 'done', notes });
+  self.postMessage({ type: 'done', notes, envelope } satisfies WorkerResponse, [envelope.rms.buffer]);
 }
 
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {

@@ -162,17 +162,14 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
     [pps, peaks],
   );
   const { notes } = transcription;
-  const noteLayout = useMemo(() => layoutNotes(notes ?? []), [notes]);
-  const minStrength = notation.settings.minStrength;
+  const noteLayout = useMemo(() => layoutNotes(notation.display), [notation.display]);
   const drawNotesDim = useCallback<DrawFn>(
-    (ctx, scrollLeft, w, h) =>
-      drawNotes(ctx, 'dim', scrollLeft, w, h, pps, duration, noteLayout, minStrength),
-    [pps, duration, noteLayout, minStrength],
+    (ctx, scrollLeft, w, h) => drawNotes(ctx, 'dim', scrollLeft, w, h, pps, duration, noteLayout),
+    [pps, duration, noteLayout],
   );
   const drawNotesLit = useCallback<DrawFn>(
-    (ctx, scrollLeft, w, h) =>
-      drawNotes(ctx, 'lit', scrollLeft, w, h, pps, duration, noteLayout, minStrength),
-    [pps, duration, noteLayout, minStrength],
+    (ctx, scrollLeft, w, h) => drawNotes(ctx, 'lit', scrollLeft, w, h, pps, duration, noteLayout),
+    [pps, duration, noteLayout],
   );
   const { tempo, bars } = notation;
   const drawNotationLane = useCallback<DrawFn>(
@@ -284,7 +281,7 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
           <TranscribeControls
             transcription={transcription}
             onTranscribe={onTranscribe}
-            onExport={() => notes && downloadDocument(toDocument(notes, track.name, duration))}
+            onExport={() => downloadDocument(toDocument(notation.kept, track.name, duration))}
           />
           <Box w="1px" h="5" bg="border" mx="1.5" aria-hidden="true" />
           <Hint label="Uitzoomen">

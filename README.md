@@ -29,12 +29,16 @@ Instrument Sans) komen via `@fontsource`, dus er wordt niets van externe servers
 - **Noten herkennen**: de knop boven de lanes laat [Basic Pitch](https://github.com/spotify/basic-pitch)
   in een worker de noten uit de opname halen. Ze verschijnen als pianorol in de notenlane onder de
   golfvorm, op dezelfde tijdas, met de zes open snaren als hulplijnen. Het gespeelde deel licht op.
-  Met de downloadknop sla je de noten op als JSON (`{ start, duration, midi, amplitude }`, in seconden).
+  Met de downloadknop sla je de noten op als JSON (`{ start, duration, midi, amplitude }`, in seconden),
+  zoals ze na drempel en stiltegrens overblijven.
 - **Notatie**: vul het tempo in of tik het mee, kies de maatsoort (2/4, 3/4 of 4/4) en zet zo nodig
   tel 1 op de afspeelkop. De noten verschijnen in vioolsleutel met een 8 eronder (gitaar klinkt een
   octaaf lager dan genoteerd), op een raster van zestienden. Elke maat is precies één maatduur breed
   op de tijdas, dus maatstrepen en nootkoppen staan recht onder hun aanslag in de golfvorm.
   Met de **drempel** laat je zwakke noten (vaak boventonen) uit de notatie; in de pianorol blijven ze als omtrek zichtbaar.
+- **Stilte**: alles zachter dan deze grens (standaard −20 dB onder het luidste moment) telt als stilte.
+  Noten die daar beginnen (echo, galm) vallen weg, en noten die erin doorklinken eindigen waar de stilte begint.
+  Dat geldt voor de pianorol, de notatie en de JSON-export.
 
 ### Sneltoetsen
 
@@ -62,6 +66,7 @@ src/
     useTranscription.ts    start en stopt de worker, houdt status en noten bij
     basicPitch.worker.ts   TF.js + Basic Pitch, van samples naar noot-events
     resample.ts            opnieuw decoderen op 22,05 kHz mono
+    gate.ts                stiltegrens: noten inkorten of weglaten op basis van het geluidsniveau
     notes.ts, types.ts     notennamen, JSON-export, berichtvormen van de worker
   components/
     timeline/              de gedeelde tijdas

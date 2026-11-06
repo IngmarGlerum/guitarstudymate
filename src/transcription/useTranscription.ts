@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { decodeForTranscription } from './resample';
-import type { NoteEvent, WorkerRequest, WorkerResponse } from './types';
+import type { Envelope, NoteEvent, WorkerRequest, WorkerResponse } from './types';
 
 export type TranscriptionStatus =
   | 'idle'
@@ -36,6 +36,7 @@ export function useTranscription() {
   const [status, setStatus] = useState<TranscriptionStatus>('idle');
   const [progress, setProgress] = useState(0);
   const [notes, setNotes] = useState<NoteEvent[] | null>(null);
+  const [envelope, setEnvelope] = useState<Envelope | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [backend, setBackend] = useState<string | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -98,6 +99,7 @@ export function useTranscription() {
           case 'done':
             stop();
             setNotes(msg.notes);
+            setEnvelope(msg.envelope);
             setProgress(1);
             setStatus('done');
             break;
@@ -124,6 +126,7 @@ export function useTranscription() {
     setStatus('idle');
     setProgress(0);
     setNotes(null);
+    setEnvelope(null);
     setError(null);
   }, [stop]);
 
@@ -134,6 +137,7 @@ export function useTranscription() {
       setStatus('decoding');
       setProgress(0);
       setNotes(null);
+      setEnvelope(null);
       setError(null);
       setBackend(null);
 
@@ -151,7 +155,7 @@ export function useTranscription() {
 
   const busy = status !== 'idle' && status !== 'done' && status !== 'error';
 
-  return { status, progress, notes, error, backend, busy, start, cancel: reset, reset };
+  return { status, progress, notes, envelope, error, backend, busy, start, cancel: reset, reset };
 }
 
 export type Transcription = ReturnType<typeof useTranscription>;

@@ -28,8 +28,16 @@ export type WorkerRequest = {
 export type WorkerResponse =
   | { type: 'stage'; stage: 'model' | 'analyse' | 'notes'; backend?: string }
   | { type: 'progress'; value: number }
-  | { type: 'done'; notes: NoteEvent[] }
+  | { type: 'done'; notes: NoteEvent[]; envelope: Envelope }
   | { type: 'error'; message: string };
+
+/** RMS level of the recording over short frames, for the silence gate. */
+export interface Envelope {
+  /** linear RMS per frame */
+  rms: Float32Array;
+  /** frames per second */
+  rate: number;
+}
 
 /** Basic Pitch is trained on 22.05 kHz mono. */
 export const TRANSCRIBE_RATE = 22050;

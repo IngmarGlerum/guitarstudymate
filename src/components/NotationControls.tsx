@@ -1,8 +1,9 @@
-import { Box, Button, Flex, NativeSelect, NumberInput, Slider, Text } from '@chakra-ui/react';
+import { Button, Flex, NativeSelect, NumberInput, Slider, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { LuFlag, LuHand } from 'react-icons/lu';
 import type { Notation } from '../notation/useNotation';
 import { BPM_MAX, BPM_MIN, METERS } from '../notation/tempo';
+import { GATE_MAX_DB, GATE_MIN_DB } from '../notation/useNotation';
 import { formatTime } from '../lib/format';
 import { Hint } from './Hint';
 
@@ -25,8 +26,17 @@ interface Props {
 
 /** Tempo, meter, beat 1 and strength threshold for the notation lane. */
 export function NotationControls({ notation, getTime, totalNotes }: Props) {
-  const { settings, tempo, keptCount, setBpm, tap, setBeatsPerBar, setDownbeat, setMinStrength } =
-    notation;
+  const {
+    settings,
+    tempo,
+    keptCount,
+    setBpm,
+    tap,
+    setBeatsPerBar,
+    setDownbeat,
+    setMinStrength,
+    setGateDb,
+  } = notation;
 
   // Local text so typing "8" on the way to "80" isn't clamped to 30.
   // Re-sync when the tempo changes from elsewhere (tapping).
@@ -140,12 +150,43 @@ export function NotationControls({ notation, getTime, totalNotes }: Props) {
             </Slider.Thumb>
           </Slider.Control>
         </Slider.Root>
-        <Box minW="64px">
-          <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" whiteSpace="nowrap">
-            {keptCount} van {totalNotes}
-          </Text>
-        </Box>
       </Flex>
+
+      <Flex align="center" gap="3" flex="1" minW="220px" maxW="360px">
+        <Hint label="Zachter dan dit telt als stilte: echo en uitklinkende staarten vallen weg">
+          <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap">
+            Stilte
+          </Text>
+        </Hint>
+        <Slider.Root
+          size="sm"
+          variant="solid"
+          colorPalette="brass"
+          min={GATE_MIN_DB}
+          max={GATE_MAX_DB}
+          step={1}
+          value={[settings.gateDb]}
+          onValueChange={(d) => setGateDb(d.value[0])}
+          flex="1"
+          aria-label={['Stiltegrens in decibel']}
+        >
+          <Slider.Control>
+            <Slider.Track bg={trackBg}>
+              <Slider.Range />
+            </Slider.Track>
+            <Slider.Thumb index={0} boxShadow={thumbShadow}>
+              <Slider.HiddenInput />
+            </Slider.Thumb>
+          </Slider.Control>
+        </Slider.Root>
+        <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" whiteSpace="nowrap" minW="48px">
+          {settings.gateDb.toString().replace('-', '−')} dB
+        </Text>
+      </Flex>
+
+      <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" whiteSpace="nowrap">
+        {keptCount} van {totalNotes} noten
+      </Text>
     </Flex>
   );
 }
