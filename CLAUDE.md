@@ -45,6 +45,12 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
    Tuning en capo zijn parameters.
 5. Handmatig corrigeren van noten en frets. De automatische transcriptie is nooit foutloos.
 
+Modus Techniek (oefenmachine), volgens het requirementsdocument "Guitar Study Mate – Requirements
+Oefenmachine" (claude.ai/artifact/UwC4ARkj4LRDs7kxjiMw9Q):
+- Klaar: instellingen, ladders en arpeggio's, posities en vingerzettingen, custom pattern, notenbalk met
+  Tab of Gitaarhals, metronoom en Karplus-Strong-geluid, voortellen, volumes, modusschakelaar.
+- Nog te doen: presets opslaan, laden, exporteren en importeren (sectie 8).
+
 ## Architectuurregels
 
 - **Gedeelde tijdas**: x = tijd × pixels per seconde. Alle lanes staan in dezelfde horizontaal
@@ -74,6 +80,20 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
   bijgeschoven tot `getNoteHeadBeginX()` precies daar valt. Sleutel en maatsoort staan in de kopkolom
   links van de lane (`NotationHeader`, zelfde `STAVE_Y`), nooit over de noten heen. Op smalle schermen is
   die kolom verborgen en is er dus geen sleutel. Alleen zichtbare maten worden met VexFlow opgebouwd, bij elke scroll opnieuw.
+
+- Techniek: rekenkern in `src/technique/` zonder React (theory, fingering, exercise, engine), scherm in
+  `src/components/technique/`. Vingerzetting toonladder = de ladder in volgorde, `perString` noten per
+  snaar van lage naar hoge E, rek per snaar ≤ 5 frets (bij 4 noten per snaar een slide op de tweede noot).
+  Arpeggio = akkoordtonen in volgorde, liefst op de volgende snaar binnen de positie (anchor −1 tot +5).
+  Dubbele posities: zelfde relatieve vorm wordt weggelaten.
+- `PracticeEngine` plant noten en klikken 150 ms vooruit op `AudioContext.currentTime` (timer 25 ms,
+  nooit setTimeout voor de timing zelf). De UI vraagt in `useFrame` `position()` op (met output-latency)
+  en tekent alleen de highlight-canvassen opnieuw als de klinkende noot wisselt. Een herhaling wordt
+  aangevuld met rusten tot hele maten. Een nieuwe noot op een snaar kapt de vorige af; arpeggio's klinken
+  door, toonladders legato.
+- Het instrument zit achter `Instrument.play(midi, snaar, tijd, duur)`, zodat samples later kunnen.
+- De notenbalk in Techniek is een eigen tekening (`technique/drawScore.ts`), niet de Meespelen-tijdas:
+  de speler is nog niet echt gedeeld tussen de modi.
 
 ## Ontwerprichting
 
@@ -112,6 +132,10 @@ stekkers in messing, de ES-335 sunburst en de tweed Fender-versterker.
   Met de stiltegrens van −20 dB vallen 18 van de 74 noten weg (en 2 door de sterktedrempel) en worden
   de basnoten ingekort. De grens is
   op deze ene opname gekozen; bij galmige opnames of een zacht gespeeld stuk moet hij omlaag.
+- Techniek is getest in headless Chromium: toonhoogte van de Karplus-Strong-snaar (offline gerenderd,
+  E2 tot E6 binnen 1 cent), voortellen, highlight in notenbalk, tab en hals, 4 noten per snaar, B♭7-arpeggio
+  in triolen, patroon 1 2 3 7, heletoons met één positie, telefoonbreedte. Het geluid en de timing zijn niet
+  beluisterd; de synchronisatie op een echt apparaat (output-latency, Bluetooth) is niet gecontroleerd.
 - Stap 3 is getest in headless Chromium op hetzelfde bestand: 4/4 en 3/4, tikken, inzoomen, telefoonbreedte.
   Nootkoppen vallen binnen een paar pixels op hun aanslag. Niet geprobeerd: lange stukken, snelle loopjes,
   echte opnames.
