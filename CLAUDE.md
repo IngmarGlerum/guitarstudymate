@@ -18,6 +18,13 @@ npm run lint
 
 Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v2.
 
+## Werkwijze met git
+
+- Werk op een feature-branch en lever via een pull request naar `main`; de eigenaar merget zelf.
+- Is de PR al gemerged en zijn er daarna nog commits bijgekomen, merge dan `main` in de branch
+  (gewone merge, geen rebase of force-push), push en open een nieuwe PR met alleen die commits.
+  Dat mag zonder het eerst te vragen.
+
 ## Stappenplan
 
 1. Klaar: audio-lane met upload, waveform, playhead, loop-locators, snelheid, zoom, sneltoetsen.
@@ -58,8 +65,9 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
 - Laanvolgorde: Opname, Notatie, Noten (pianorol). De tab-lane komt onder de notatie.
 - Notatie: maat k begint op `downbeat + k × maatduur`, ook negatieve k (opmaat). Elke noot staat op
   `maatbegin + BAR_PAD + tick/maatticks × (maatbreedte − BAR_PAD)`; daarna wordt de TickContext
-  bijgeschoven tot `getNoteHeadBeginX()` precies daar valt. Sleutel en maatsoort zijn vastgepind links
-  in beeld. Alleen zichtbare maten worden met VexFlow opgebouwd, bij elke scroll opnieuw.
+  bijgeschoven tot `getNoteHeadBeginX()` precies daar valt. Sleutel en maatsoort staan in de kopkolom
+  links van de lane (`NotationHeader`, zelfde `STAVE_Y`), nooit over de noten heen. Op smalle schermen is
+  die kolom verborgen en is er dus geen sleutel. Alleen zichtbare maten worden met VexFlow opgebouwd, bij elke scroll opnieuw.
 
 ## Ontwerprichting
 
