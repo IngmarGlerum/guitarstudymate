@@ -42,6 +42,8 @@ stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespel
   **Gitaarhals**. De noot die klinkt licht op in beide.
 - Geluid: een Karplus-Strong-snaar en een metronoom op de onderverdeling, allebei vooruit ingepland op de
   Web Audio-klok. Voortellen (één maat), gitaar aan of uit, aparte volumes. Spatie speelt of stopt.
+- **Presets**: sla de huidige oefening onder een naam op en laad hem later terug. Presets staan alleen in
+  deze browser (localStorage, JSON, geen account); exporteer en importeer ze als bestand als vangnet.
 
 ## Meespelen
 

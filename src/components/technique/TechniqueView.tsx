@@ -1,6 +1,6 @@
-import { Box, chakra, Flex, IconButton, SegmentGroup, Slider, Switch, Text } from '@chakra-ui/react';
+import { Box, Button, chakra, Flex, IconButton, SegmentGroup, Slider, Switch, Text } from '@chakra-ui/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LuPlay, LuSquare } from 'react-icons/lu';
+import { LuBookmark, LuPlay, LuSquare } from 'react-icons/lu';
 import { overlayContext, useCanvas } from '../../hooks/useCanvas';
 import { useFrame } from '../../hooks/useFrame';
 import { useStoredState } from '../../hooks/useStoredState';
@@ -14,11 +14,13 @@ import {
 } from '../../technique/drawScore';
 import { PracticeEngine } from '../../technique/engine';
 import { fingeringFor, formulaFor, layoutPass } from '../../technique/exercise';
+import { usePresets } from '../../technique/presets';
 import { useExerciseSettings } from '../../technique/settings';
 import { pcName, ROOTS } from '../../technique/theory';
 import { Hint } from '../Hint';
 import { ExerciseSettingsPanel } from './ExerciseSettingsPanel';
 import { PatternDialog } from './PatternDialog';
+import { PresetsDialog } from './PresetsDialog';
 
 type View = 'neck' | 'tab';
 const isView = (v: unknown): v is View => v === 'neck' || v === 'tab';
@@ -38,7 +40,9 @@ const trackBg = 'rgba(241,230,204,0.16)';
 
 /** The Techniek mode: a configurable exercise, a metronome, and notes that light up in sync. */
 export function TechniqueView({ active }: { active: boolean }) {
-  const { settings, update, perStringOptions, positionOptions } = useExerciseSettings();
+  const { settings, update, replace, perStringOptions, positionOptions } = useExerciseSettings();
+  const presets = usePresets();
+  const [presetsOpen, setPresetsOpen] = useState(false);
   const [view, setView] = useStoredState<View>('gsm.technique.view', 'neck', isView);
   const [audio, setAudio] = useStoredState<AudioPrefs>('gsm.audio', DEFAULT_AUDIO, isAudio);
   const [playing, setPlaying] = useState(false);
@@ -204,9 +208,14 @@ export function TechniqueView({ active }: { active: boolean }) {
       css={{ boxShadow: '0 24px 70px rgba(0,0,0,0.5), 0 0 90px rgba(217,164,65,0.06)' }}
     >
       <Box px={{ base: 3, md: 5 }} py="4" borderBottomWidth="1px" borderColor="border">
-        <Text fontFamily="heading" fontSize={{ base: 'lg', md: 'xl' }} fontWeight="500" mb="3">
-          {title}
-        </Text>
+        <Flex align="center" justify="space-between" gap="3" mb="3">
+          <Text fontFamily="heading" fontSize={{ base: 'lg', md: 'xl' }} fontWeight="500" minW="0">
+            {title}
+          </Text>
+          <Button size="sm" variant="outline" colorPalette="brass" onClick={() => setPresetsOpen(true)}>
+            <LuBookmark /> Presets
+          </Button>
+        </Flex>
         <ExerciseSettingsPanel
           settings={settings}
           update={update}
@@ -351,6 +360,13 @@ export function TechniqueView({ active }: { active: boolean }) {
         </Flex>
       </Flex>
 
+      <PresetsDialog
+        open={presetsOpen}
+        onClose={() => setPresetsOpen(false)}
+        current={settings}
+        onLoad={replace}
+        presets={presets}
+      />
       <PatternDialog
         open={patternOpen}
         initial={settings.pattern}
