@@ -20,10 +20,11 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
 
 ## Werkwijze met git
 
-- Werk op een feature-branch en lever via een pull request naar `main`; de eigenaar merget zelf.
-- Is de PR al gemerged en zijn er daarna nog commits bijgekomen, merge dan `main` in de branch
-  (gewone merge, geen rebase of force-push), push en open een nieuwe PR met alleen die commits.
-  Dat mag zonder het eerst te vragen.
+- Werk op een feature-branch, open een pull request naar `main` en merge die zelf zodra het werk af is
+  en `npm run build` slaagt (merge-commit, geen squash). Zo staat elke wijziging als PR in GitHub en zet
+  Vercel hem in productie zonder dat de eigenaar iets hoeft te doen. Dat mag zonder het eerst te vragen.
+- Voor een volgende wijziging: merge `main` in de branch (gewone merge, geen rebase of force-push),
+  push en open een nieuwe PR met alleen de nieuwe commits.
 
 ## Stappenplan
 
