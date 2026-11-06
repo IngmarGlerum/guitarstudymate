@@ -21,11 +21,14 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
 ## Stappenplan
 
 1. Klaar: audio-lane met upload, waveform, playhead, loop-locators, snelheid, zoom, sneltoetsen.
-2. Audio naar noten: Basic Pitch (TF.js) in een worker, resultaat als note events
-   `{ start, duration, midi, amplitude }` in JSON. Werkt voor solo gitaar. Bij een volledige mix
-   eerst de gitaar scheiden (bijvoorbeeld Demucs, server-side). Decodeer opnieuw op 22,05 kHz mono.
-3. Notatielane (VexFlow) onder de waveform. Quantiseren vraagt tempo: laat de gebruiker de BPM
-   invullen of tikken in plaats van automatisch detecteren.
+2. Klaar: audio naar noten. Basic Pitch (`@spotify/basic-pitch`, TF.js 3) in een worker
+   (`src/transcription/`), resultaat als note events `{ start, duration, midi, amplitude }`,
+   exporteerbaar als JSON. Getoond als pianorol in de notenlane. Werkt voor solo gitaar. Bij een
+   volledige mix eerst de gitaar scheiden (bijvoorbeeld Demucs, server-side).
+3. Klaar: notatielane (VexFlow 4.2.5, `vexflow/bravura`, lettertype zit in het pakket) onder de
+   waveform. Tempo, maatsoort en tel 1 komen van de gebruiker (invullen of tikken, nooit detecteren).
+   `src/notation/quantize.ts` zet noten op zestienden, één stem met akkoorden, rusten en overbindingen.
+   Een sterktedrempel (standaard 0,4) houdt zwakke noten (boventonen) uit de notatie.
 4. Tab-lane: MIDI naar (snaar, fret) met dynamic programming (Viterbi). Kosten voor
    handverplaatsing, spanwijdte (maximaal ongeveer 4 frets) en afstand tot een voorkeurspositie.
    Tuning en capo zijn parameters.
@@ -44,6 +47,16 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
   canvas-lanes gebruiken `useWindowedCanvas` (canvas ter grootte van het venster).
 - De loop wrapt alleen als het einde tijdens het afspelen wordt gekruist, niet bij zoeken voorbij het einde.
 - Maximaal 15 minuten per bestand. De gedecodeerde buffer wordt na de pieken niet bewaard.
+- Transcriptie draait in `basicPitch.worker.ts`, nooit op de main thread. `useTranscription`
+  beëindigt de worker bij een nieuw bestand, bij stoppen en bij unmount.
+- TF.js 3.x roept in `setTimeoutCustom` `window` aan; in een worker gooit dat en blijft WebGL-
+  inferentie stil hangen. De worker vervangt die functie daarom door gewone `setTimeout`. Niet weghalen.
+- Waakhond: als het eerste venster op WebGL niet binnen 30 s klaar is, start de hook opnieuw op de CPU.
+- Laanvolgorde: Opname, Notatie, Noten (pianorol). De tab-lane komt onder de notatie.
+- Notatie: maat k begint op `downbeat + k × maatduur`, ook negatieve k (opmaat). Elke noot staat op
+  `maatbegin + BAR_PAD + tick/maatticks × (maatbreedte − BAR_PAD)`; daarna wordt de TickContext
+  bijgeschoven tot `getNoteHeadBeginX()` precies daar valt. Sleutel en maatsoort zijn vastgepind links
+  in beeld. Alleen zichtbare maten worden met VexFlow opgebouwd, bij elke scroll opnieuw.
 
 ## Ontwerprichting
 
@@ -66,3 +79,15 @@ stekkers in messing, de ES-335 sunburst en de tweed Fender-versterker.
   is nog niet beluisterd.
 - Alleen Chrome is geprobeerd, niet Firefox of Safari.
 - Op touch maak je een loop met de Loop-knop en de locators; slepen over de waveform scrolt daar.
+- Stap 2 is getest in headless Chromium met een synthetisch Karplus-Strong-bestand (7 melodienoten
+  plus een akkoord van 4): alle 11 noten gevonden binnen ±15 ms, plus 8 zachtere boventonen.
+  WebGL en CPU gaven dezelfde uitvoer. Niet geprobeerd: echte gitaaropnames, een echte GPU
+  (headless gebruikt software-GL), lange bestanden, Firefox en Safari.
+- Openstaand: geheugengebruik bij lange opnames. De bibliotheek bewaart frames en onsets als geneste
+  JS-arrays (ruim 100 MB bij 15 minuten). Oplossing: eigen inferentielus met `Float32Array`'s.
+- Boventonen komen als losse zachte noten mee. Een filter op toonafstand (octaaf, duodecime) werkte niet:
+  op het testbestand had de echte E3 in het E-mineurakkoord dezelfde sterkteverhouding tot E2 als de
+  boventoon E4 tot E3. Daarom een instelbare drempel. De standaard 0,4 is op één synthetisch bestand gekozen.
+- Stap 3 is getest in headless Chromium op hetzelfde bestand: 4/4 en 3/4, tikken, inzoomen, telefoonbreedte.
+  Nootkoppen vallen binnen een paar pixels op hun aanslag. Niet geprobeerd: lange stukken, snelle loopjes,
+  echte opnames.
