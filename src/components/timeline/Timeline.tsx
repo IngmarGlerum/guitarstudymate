@@ -31,7 +31,7 @@ import type { Notation } from '../../notation/useNotation';
 import { barDuration } from '../../notation/tempo';
 import { NotationControls } from '../NotationControls';
 import { drawNotes, drawRuler, drawWaveform, layoutNotes } from './drawing';
-import { drawNotation, MIN_BAR_PX } from './drawNotation';
+import { drawNotation, drawStaffHeader, MIN_BAR_PX } from './drawNotation';
 import { LoopHandle } from './LoopHandle';
 import { useWindowedCanvas, type DrawFn } from './useWindowedCanvas';
 
@@ -360,26 +360,7 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
               Opname
             </Text>
           </Flex>
-          <Flex
-            h={`${NOTATION_H}px`}
-            direction="column"
-            align="center"
-            justify="center"
-            gap="1.5"
-            color="fg.muted"
-            borderTopWidth="1px"
-            borderColor="border"
-          >
-            <LuMusic4 size={20} color={palette.brass} />
-            <Text fontFamily="heading" fontStyle="italic" fontSize="md" color="fg">
-              Notatie
-            </Text>
-            {tempo && (
-              <Text fontSize="xs" fontVariantNumeric="tabular-nums">
-                {tempo.bpm} BPM · {tempo.beatsPerBar}/4
-              </Text>
-            )}
-          </Flex>
+          <NotationHeader beatsPerBar={tempo ? tempo.beatsPerBar : null} bpm={tempo?.bpm ?? null} />
           <Flex
             h={`${NOTES_H}px`}
             direction="column"
@@ -739,5 +720,62 @@ function NotationLaneMessage({
         {text}
       </Text>
     </Flex>
+  );
+}
+
+const HEADER_W = 111; // column is 112px including its 1px right border
+
+/** Lane header for the notation: clef and time signature on a stub of staff. */
+function NotationHeader({ beatsPerBar, bpm }: { beatsPerBar: number | null; bpm: number | null }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(HEADER_W * dpr);
+    canvas.height = Math.round(NOTATION_H * dpr);
+    canvas.style.width = `${HEADER_W}px`;
+    canvas.style.height = `${NOTATION_H}px`;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, HEADER_W, NOTATION_H);
+    if (beatsPerBar !== null) drawStaffHeader(ctx, HEADER_W, beatsPerBar);
+  }, [beatsPerBar]);
+
+  return (
+    <Box
+      position="relative"
+      h={`${NOTATION_H}px`}
+      color="fg.muted"
+      borderTopWidth="1px"
+      borderColor="border"
+    >
+      {/* the border takes 1px; pull the canvas up so its staff matches the lane's */}
+      <chakra.canvas ref={canvasRef} position="absolute" top="-1px" left="0" aria-hidden="true" />
+      {beatsPerBar === null ? (
+        <Flex h="full" direction="column" align="center" justify="center" gap="1.5">
+          <LuMusic4 size={20} color={palette.brass} />
+          <Text fontFamily="heading" fontStyle="italic" fontSize="md" color="fg">
+            Notatie
+          </Text>
+        </Flex>
+      ) : (
+        <Text
+          position="absolute"
+          bottom="1"
+          left="0"
+          right="0"
+          textAlign="center"
+          fontSize="xs"
+          fontVariantNumeric="tabular-nums"
+        >
+          <chakra.span fontFamily="heading" fontStyle="italic" fontSize="xs" color="fg">
+            Notatie
+          </chakra.span>{' '}
+          · {bpm} BPM
+        </Text>
+      )}
+    </Box>
   );
 }

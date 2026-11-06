@@ -22,7 +22,6 @@ const STAVE_Y = 34;
 const BAR_PAD = 6;
 /** below this bar width the notes would collide; only staves are drawn */
 export const MIN_BAR_PX = 120;
-const CLEF_PANEL_W = 62;
 
 const SHARP_NAMES = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
 
@@ -155,19 +154,21 @@ export function drawNotation(
       .draw();
   }
 
-  // clef and time signature stay pinned at the left edge, like a DAW's track header
-  const grad = ctx.createLinearGradient(0, 0, CLEF_PANEL_W + 14, 0);
-  grad.addColorStop(0, 'rgba(28,19,13,0.94)');
-  grad.addColorStop(0.8, 'rgba(28,19,13,0.88)');
-  grad.addColorStop(1, 'rgba(28,19,13,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, CLEF_PANEL_W + 14, _height);
-  const head = new Stave(0, STAVE_Y, CLEF_PANEL_W);
+}
+
+/**
+ * Clef and time signature for the lane header column, outside the scrolling
+ * area so they never cover notes. Same STAVE_Y as the lane, so the staff lines
+ * continue straight into the lane.
+ */
+export function drawStaffHeader(ctx: CanvasRenderingContext2D, width: number, beatsPerBar: number) {
+  const vf = new CanvasContext(ctx);
+  const head = new Stave(10, STAVE_Y, width - 10);
   head.setStyle({ fillStyle: palette.parchmentMuted, strokeStyle: staveStyle.strokeStyle });
   head.setBegBarType(BarlineType.SINGLE).setEndBarType(BarlineType.NONE);
   const glyphStyle = { fillStyle: palette.parchmentMuted, strokeStyle: palette.parchmentMuted };
   head.addModifier(new Clef('treble', 'default', '8vb').setStyle(glyphStyle));
-  head.addModifier(new TimeSignature(`${tempo.beatsPerBar}/4`).setStyle(glyphStyle));
+  head.addModifier(new TimeSignature(`${beatsPerBar}/4`).setStyle(glyphStyle));
   head.setContext(vf).draw();
 }
 
