@@ -24,6 +24,8 @@ Instrument Sans) komen via `@fontsource`, dus er wordt niets van externe servers
 - **Golfvorm** met tijdlineaal. Het gespeelde deel licht op, de rest blijft gedempt.
 - **Afspeelkop** die over de hele lane loopt. Klik om te zoeken.
 - **Loop**: sleep over de golfvorm om een loop te maken, of pak de locators in de lineaal om hem bij te stellen.
+  Ga je in de lineaal tussen de locators staan, dan verschijnt een greep: daarmee schuif je de hele loop op,
+  zonder dat de lengte verandert. Met het toetsenbord: Tab naar de greep, dan ← → (met Shift in stappen van 1 seconde).
 - **Snelheid** van 0,25× tot 2× met behoud van toonhoogte, plus presets.
 - **Zoom** met de knoppen of Ctrl/⌘ + scrollen, en een knop om de afspeelkop te laten volgen.
 - **Weergave**: kies in het menu welke lineaal je ziet, de **tijd**, de **maten** of allebei. De
@@ -77,6 +79,7 @@ src/
       drawing.ts           lineaal, golfvorm en pianorol op canvas
       drawNotation.ts      notenbalk met VexFlow, alleen de zichtbare maten
       LoopHandle.tsx       versleepbare loop-locators
+      LoopMover.tsx        greep om de hele loop te verschuiven
       useWindowedCanvas.ts canvas ter grootte van het venster, tekent alleen wat zichtbaar is
     TransportBar.tsx       bediening onder de lane
     NotationControls.tsx   tempo, tik, maatsoort, tel 1, drempel, stilte

@@ -42,6 +42,7 @@ import { ViewMenu } from './ViewMenu';
 import { useViewPrefs } from './viewPrefs';
 import { drawNotation, drawStaffHeader, MIN_BAR_PX } from './drawNotation';
 import { LoopHandle } from './LoopHandle';
+import { LoopMover } from './LoopMover';
 import { useWindowedCanvas, type DrawFn } from './useWindowedCanvas';
 
 export const TIME_RULER_H = 30;
@@ -612,6 +613,15 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
 
             {loop && (
               <>
+                <LoopMover
+                  region={loop}
+                  enabled={loopEnabled}
+                  pps={pps}
+                  duration={duration}
+                  rulerHeight={RULER_H}
+                  setLoop={setLoop}
+                  onTap={(clientX) => seek(timeAt(clientX))}
+                />
                 {(['start', 'end'] as const).map((kind) => (
                   <LoopHandle
                     key={kind}
