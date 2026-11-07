@@ -97,7 +97,7 @@ export function TransportBar({ transport }: { transport: Transport }) {
           </IconButton>
         </Hint>
         <Box lineHeight="1.15" minW="8.5rem">
-          <Text fontFamily="heading" fontSize="2xl" fontWeight="500" aria-label="Positie">
+          <Text fontFamily="heading" fontSize="2xl" fontWeight="500" aria-label="Afspeelpositie">
             <TimeReadout getTime={getTime} />
           </Text>
           <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums">
@@ -126,16 +126,10 @@ export function TransportBar({ transport }: { transport: Transport }) {
             <Text fontSize="sm" color="fg.muted" fontVariantNumeric="tabular-nums">
               {formatTime(loop.start, 1)} – {formatTime(loop.end, 1)}
             </Text>
-            <Hint label="Loop wissen">
-              <IconButton
-                aria-label="Loop wissen"
-                size="xs"
-                variant="ghost"
-                rounded="full"
-                onClick={() => setLoop(null)}
-              >
-                <LuX />
-              </IconButton>
+            <Hint label="Loop wissen (Delete)">
+              <Button size="xs" variant="ghost" onClick={() => setLoop(null)}>
+                <LuX /> Wissen
+              </Button>
             </Hint>
           </>
         ) : (

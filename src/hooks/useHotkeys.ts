@@ -5,7 +5,7 @@ const RATE_STEP = 0.05;
 
 /**
  * Space play/pause · ←/→ ±1 s (Shift ±5 s) · Home to start/loop start
- * L loop on/off · [ ] loop start/end at playhead · , . slower/faster
+ * L loop on/off · Delete loop away · [ ] loop start/end at playhead · , . slower/faster
  */
 export function useHotkeys(transport: Transport, enabled = true) {
   const latest = useRef(transport);
@@ -47,6 +47,13 @@ export function useHotkeys(transport: Transport, enabled = true) {
           t.seek(t.loopEnabled && t.loop ? t.loop.start : 0);
           return;
         }
+        case 'Delete':
+        case 'Backspace':
+          if (t.loop) {
+            e.preventDefault();
+            t.setLoop(null);
+          }
+          return;
         case 'l':
         case 'L':
           t.setLoopEnabled(!t.loopEnabled);

@@ -43,6 +43,11 @@ export function LoopHandle({
     const fixed = fixedEdge.current;
     const content = contentRef.current;
     if (fixed === null || !content) return;
+    // the button was released somewhere we did not hear about: stop dragging
+    if ((e.buttons & 1) === 0) {
+      fixedEdge.current = null;
+      return;
+    }
     const t = clamp((e.clientX - content.getBoundingClientRect().left) / pps, 0, duration);
     setLoop(
       kind === 'start'
@@ -63,6 +68,9 @@ export function LoopHandle({
     onPointerMove,
     onPointerUp,
     onPointerCancel: onPointerUp,
+    onLostPointerCapture: () => {
+      fixedEdge.current = null;
+    },
   };
 
   return (

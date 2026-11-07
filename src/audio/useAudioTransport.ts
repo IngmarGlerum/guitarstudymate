@@ -53,6 +53,9 @@ export function useAudioTransport() {
   const durationRef = useRef(0);
   const lastTimeRef = useRef(0);
   const rateRef = useRef(1);
+  /** setting: after stopping, jump back to where playback started */
+  const returnOnStopRef = useRef(false);
+  const playStartRef = useRef(0);
   const volumeRef = useRef(0.9);
 
   const getAudio = useCallback(() => {
@@ -99,6 +102,9 @@ export function useAudioTransport() {
         audio.currentTime = region.start;
         lastTimeRef.current = region.start;
         void audio.play().catch(() => {});
+      } else if (returnOnStopRef.current) {
+        audio.currentTime = playStartRef.current;
+        lastTimeRef.current = playStartRef.current;
       }
     };
     audio.addEventListener('play', onPlay);
@@ -256,23 +262,39 @@ export function useAudioTransport() {
       audio.currentTime = 0;
       lastTimeRef.current = 0;
     }
+    playStartRef.current = audio.currentTime;
     void audio.play().catch(() => {});
   }, []);
 
-  const pause = useCallback(() => audioRef.current?.pause(), []);
+  /** Stop playing; with the setting on, the playhead returns to where it started. */
+  const pause = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || audio.paused) return;
+    audio.pause();
+    if (returnOnStopRef.current) {
+      audio.currentTime = playStartRef.current;
+      lastTimeRef.current = playStartRef.current;
+    }
+  }, []);
 
   const toggle = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) play();
-    else audio.pause();
-  }, [play]);
+    else pause();
+  }, [play, pause]);
+
+  const setReturnOnStop = useCallback((on: boolean) => {
+    returnOnStopRef.current = on;
+  }, []);
 
   const seek = useCallback((seconds: number) => {
     const audio = audioRef.current;
     if (!audio || durationRef.current === 0) return;
     const t = clamp(seconds, 0, durationRef.current);
     audio.currentTime = t;
+    // a click while playing becomes the new place to return to
+    if (!audio.paused) playStartRef.current = t;
     lastTimeRef.current = t;
   }, []);
 
@@ -322,6 +344,7 @@ export function useAudioTransport() {
     setVolume,
     setLoop,
     setLoopEnabled,
+    setReturnOnStop,
   };
 }
 

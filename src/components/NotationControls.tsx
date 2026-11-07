@@ -109,12 +109,12 @@ export function NotationControls({ notation, getTime, totalNotes }: Props) {
       </Flex>
 
       <Flex align="center" gap="2">
-        <Hint label="De afspeelkop staat op tel 1 van een maat">
+        <Hint label="Tel 1 van een maat komt op de afspeelkop (of op de aanslag vlak ernaast); de maatstrepen schuiven mee, de noten blijven op hun tijd">
           <Button
             size="xs"
             variant="ghost"
             disabled={!tempo}
-            onClick={() => setDownbeat(getTime())}
+            onClick={() => setDownbeat(snapToOnset(getTime(), notation.kept))}
           >
             <LuFlag /> Tel 1 hier
           </Button>
@@ -198,4 +198,18 @@ export function NotationControls({ notation, getTime, totalNotes }: Props) {
       )}
     </Flex>
   );
+}
+
+/** Beat 1 lands exactly on a note when the playhead is within 80 ms of its onset. */
+function snapToOnset(t: number, notes: { start: number }[]) {
+  let best = t;
+  let dist = 0.08;
+  for (const n of notes) {
+    const d = Math.abs(n.start - t);
+    if (d < dist) {
+      dist = d;
+      best = n.start;
+    }
+  }
+  return best;
 }
