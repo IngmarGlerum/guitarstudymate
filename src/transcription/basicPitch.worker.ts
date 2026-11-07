@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import * as tf from '@tensorflow/tfjs';
 import { BasicPitch, noteFramesToTime, outputToNotesPoly } from '@spotify/basic-pitch';
+import { mergeSustained } from './merge';
 import { TRANSCRIBE_RATE, type Envelope, type NoteEvent, type WorkerRequest, type WorkerResponse } from './types';
 
 /**
@@ -87,7 +88,7 @@ async function run({ samples, modelUrl, backend: forced }: WorkerRequest) {
   );
 
   post({ type: 'stage', stage: 'notes' });
-  const notes: NoteEvent[] =
+  const raw: NoteEvent[] =
     frames.length === 0
       ? []
       : noteFramesToTime(
@@ -110,6 +111,8 @@ async function run({ samples, modelUrl, backend: forced }: WorkerRequest) {
             amplitude: n.amplitude,
           }))
           .sort((a, b) => a.start - b.start || a.midi - b.midi);
+  // join pieces of one sustained note that the model cut apart
+  const { notes } = mergeSustained(raw, samples, TRANSCRIBE_RATE);
 
   self.postMessage({ type: 'done', notes, envelope } satisfies WorkerResponse, [envelope.rms.buffer]);
 }

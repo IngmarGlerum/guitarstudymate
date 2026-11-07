@@ -54,6 +54,10 @@ stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespel
 - **Loop**: sleep over de golfvorm om een loop te maken, of pak de locators in de lineaal om hem bij te stellen.
   Ga je in de lineaal tussen de locators staan, dan verschijnt een greep: daarmee schuif je de hele loop op,
   zonder dat de lengte verandert. Met het toetsenbord: Tab naar de greep, dan ← → (met Shift in stappen van 1 seconde).
+  Weggooien: het kruisje op de loop, "Wissen" in de afspeelbalk, of Delete.
+- **Instellingen** (tandwiel rechtsboven): Afspeelkop › Terug naar startpositie bij stoppen.
+- Na het herkennen van de noten zoomt de tijdas in tot de noten leesbaar zijn (en verder als een ingevuld
+  tempo dat vraagt); uitzoomen doet hij nooit vanzelf.
 - **Snelheid** van 0,25× tot 2× met behoud van toonhoogte, plus presets.
 - **Zoom** met de knoppen of Ctrl/⌘ + scrollen, en een knop om de afspeelkop te laten volgen.
 - **Weergave**: kies in het menu welke lineaal je ziet, de **tijd**, de **maten** of allebei. De
@@ -81,6 +85,7 @@ stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespel
 | ← → | 1 seconde terug of vooruit (met Shift: 5 seconden) |
 | Home | naar het begin, of naar het begin van de loop |
 | L | loop aan of uit |
+| Delete | loop weggooien |
 | [ en ] | loop begint of eindigt op de afspeelkop |
 | , en . | langzamer of sneller, in stappen van 0,05× |
 

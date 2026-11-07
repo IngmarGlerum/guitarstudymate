@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, type ChangeEvent } from 'react';
 import { LuUpload } from 'react-icons/lu';
 import { MESSAGES, useAudioTransport } from './audio/useAudioTransport';
 import { Logo } from './components/Logo';
+import { SettingsMenu } from './components/SettingsMenu';
+import { DEFAULT_APP_SETTINGS, isAppSettings, type AppSettings } from './lib/appSettings';
 import { TechniqueView } from './components/technique/TechniqueView';
 import { Timeline } from './components/timeline/Timeline';
 import { TransportBar } from './components/TransportBar';
@@ -27,6 +29,15 @@ export default function App() {
   const transport = useAudioTransport();
   const { status, error, track, load, fail, pause } = transport;
   const [mode, setMode] = useStoredState<Mode>('gsm.mode', 'play', isMode);
+  const [appSettings, setAppSettings] = useStoredState<AppSettings>(
+    'gsm.settings',
+    DEFAULT_APP_SETTINGS,
+    isAppSettings,
+  );
+  const { setReturnOnStop } = transport;
+  useEffect(() => {
+    setReturnOnStop(appSettings.returnToStartOnStop);
+  }, [appSettings.returnToStartOnStop, setReturnOnStop]);
 
   // switching modes stops playback; each mode keeps its own state
   useEffect(() => {
@@ -133,6 +144,7 @@ export default function App() {
                 ]}
               />
             </SegmentGroup.Root>
+            <SettingsMenu settings={appSettings} onChange={setAppSettings} />
           </Flex>
         </Flex>
       </Box>

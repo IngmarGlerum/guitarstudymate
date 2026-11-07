@@ -1,6 +1,6 @@
 import { Box } from '@chakra-ui/react';
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { LuGripHorizontal } from 'react-icons/lu';
+import { LuGripHorizontal, LuX } from 'react-icons/lu';
 import type { LoopRegion, Transport } from '../../audio/useAudioTransport';
 import { clamp, formatTime } from '../../lib/format';
 import { palette } from '../../theme/palette';
@@ -51,6 +51,12 @@ export function LoopMover({ region, enabled, pps, duration, rulerHeight, setLoop
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     if (!d) return;
+    // released somewhere we did not hear about: stop, never keep following the mouse
+    if ((e.buttons & 1) === 0) {
+      drag.current = null;
+      setDragging(false);
+      return;
+    }
     if (!d.moved && Math.abs(e.clientX - d.x) < DRAG_THRESHOLD_PX) return;
     d.moved = true;
     moveTo(d.start + (e.clientX - d.x) / pps);
@@ -65,6 +71,12 @@ export function LoopMover({ region, enabled, pps, duration, rulerHeight, setLoop
     }
   };
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      e.stopPropagation();
+      setLoop(null);
+      return;
+    }
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
     e.stopPropagation();
@@ -98,13 +110,20 @@ export function LoopMover({ region, enabled, pps, duration, rulerHeight, setLoop
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onLostPointerCapture={() => {
+        drag.current = null;
+        setDragging(false);
+      }}
       onKeyDown={onKeyDown}
       css={{
-        '& .loop-grip': { opacity: 0, transition: 'opacity 0.12s ease' },
+        '& .loop-grip, & .loop-clear': { opacity: 0, transition: 'opacity 0.12s ease' },
         '&:hover .loop-grip, &:focus-visible .loop-grip, &[data-dragging] .loop-grip': { opacity: 1 },
+        '&:hover .loop-clear, &:focus-within .loop-clear': { opacity: 1 },
         '&:hover, &[data-dragging]': { background: 'rgba(241,230,204,0.06)' },
         '&:focus-visible': { boxShadow: `inset 0 0 0 2px ${palette.brass}` },
-        '@media (prefers-reduced-motion: reduce)': { '& .loop-grip': { transition: 'none' } },
+        '@media (prefers-reduced-motion: reduce)': {
+          '& .loop-grip, & .loop-clear': { transition: 'none' },
+        },
       }}
     >
       <Box
@@ -126,6 +145,35 @@ export function LoopMover({ region, enabled, pps, duration, rulerHeight, setLoop
       >
         <LuGripHorizontal size={14} />
       </Box>
+      {width >= 70 && (
+        <Box
+          as="button"
+          className="loop-clear"
+          aria-label="Loop wissen"
+          title="Loop wissen (Delete)"
+          position="absolute"
+          top="50%"
+          right="2px"
+          transform="translateY(-50%)"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          boxSize="16px"
+          rounded="full"
+          bg="rgba(20,13,9,0.75)"
+          color={palette.parchment}
+          cursor="pointer"
+          tabIndex={-1}
+          onPointerDown={(e: PointerEvent<HTMLElement>) => e.stopPropagation()}
+          onClick={(e: { stopPropagation: () => void }) => {
+            e.stopPropagation();
+            setLoop(null);
+          }}
+          _hover={{ bg: palette.cherry }}
+        >
+          <LuX size={11} />
+        </Box>
+      )}
     </Box>
   );
 }

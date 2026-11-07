@@ -40,6 +40,11 @@ Gebruik de Chakra v3-API (`Slider.Root`, `Tooltip.Root`, `colorPalette`), niet v
    geen tweede stem. Een sterktedrempel (standaard 0,35) houdt zwakke noten (boventonen) uit de notatie.
    Een stiltegrens (`src/transcription/gate.ts`, standaard −20 dB onder de piek, RMS per 10 ms uit de
    worker) laat noten weg die in stilte beginnen en kort noten in tot waar de stilte begint.
+   Basic Pitch knipt doorklinkende noten soms in aaneengesloten stukjes van dezelfde toonhoogte (waar
+   andere snaren worden aangeslagen; `inferOnsets` uitzetten veranderde niets). `transcription/merge.ts`
+   voegt die weer samen, behalve als de energie op de grondtoon bij de knip stijgt (≥ 0,6 dB, Goertzel over
+   46 ms): dat is een echte nieuwe aanslag. Gemeten: knippen in de riff −1,1 tot −0,4 dB, echte nieuwe
+   aanslagen (synthetisch) +1,3 tot +2,3 dB. Kleine marge; het octaaf meetellen maakte het slechter.
 4. Tab-lane: MIDI naar (snaar, fret) met dynamic programming (Viterbi). Kosten voor
    handverplaatsing, spanwijdte (maximaal ongeveer 4 frets) en afstand tot een voorkeurspositie.
    Tuning en capo zijn parameters.
@@ -98,8 +103,17 @@ Oefenmachine" (claude.ai/artifact/UwC4ARkj4LRDs7kxjiMw9Q):
   Karplus-Strong-snaar). In Meespelen: `pitchesAt` (notatie) en `noteAt` (pianorol), naast het zoeken.
 - Zonder opname toont Meespelen de lege trackweergave (`Timeline` met `track = null`, 30 s placeholder-as);
   het sleepvlak (`UploadDropzone`) zit in de audiotrack, de afspeelbalk is gedimd en inert.
-- De modusschakelaar staat rechts in de kop; "Ander bestand" staat links ervan, zodat de schakelaar niet
-  verschuift.
+- Kop, van rechts: tandwiel (Instellingen), modusschakelaar, "Ander bestand". Alles links van de
+  schakelaar mag komen en gaan; de schakelaar zelf verschuift niet. Geen Tooltip om een Menu.Trigger: dan
+  verliest het menu zijn anker en opent het buiten beeld.
+- Slepen (loop maken, locators, greep) stopt zodra een pointermove binnenkomt zonder ingedrukte knop of de
+  pointer capture verloren gaat; anders bleef de loop aan de muis plakken als het loslaten elders viel.
+- Automatisch zoomen (`readablePps`): na het herkennen ≈ 32 px per typische afstand tussen aanslagen,
+  na het invullen van een tempo minstens 26 px per zestiende. Alleen inzoomen, nooit uitzoomen.
+- "Terug naar startpositie bij stoppen" (`lib/appSettings.ts`, `gsm.settings`) zit in
+  `useAudioTransport.pause`; een klik tijdens het afspelen wordt de nieuwe startpositie.
+- "Tel 1 hier" schuift de maatstrepen; de noten blijven op hun tijd (gedeelde tijdas). Binnen 80 ms van een
+  aanslag springt tel 1 op die aanslag.
 - `PracticeEngine` plant noten en klikken 150 ms vooruit op `AudioContext.currentTime` (timer 25 ms,
   nooit setTimeout voor de timing zelf). De UI vraagt in `useFrame` `position()` op (met output-latency)
   en tekent alleen de highlight-canvassen opnieuw als de klinkende noot wisselt. Een herhaling wordt

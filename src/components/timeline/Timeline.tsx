@@ -170,6 +170,40 @@ export function Timeline({
     }
   }, [pps]);
 
+  // ---- zoom in to a readable level after the notes are found, and when a tempo is set ----
+  const [autoZoom, setAutoZoom] = useState<{ pps: number; time: number } | null>(null);
+  const [seenStatus, setSeenStatus] = useState(transcription.status);
+  const [seenBpm, setSeenBpm] = useState(tempo?.bpm ?? null);
+  if (seenStatus !== transcription.status) {
+    setSeenStatus(transcription.status);
+    const found = transcription.notes;
+    if (transcription.status === 'done' && found && found.length > 1) {
+      setAutoZoom({ pps: readablePps(found.map((n) => n.start)), time: found[0].start });
+    }
+  }
+  if (seenBpm !== (tempo?.bpm ?? null)) {
+    setSeenBpm(tempo?.bpm ?? null);
+    if (tempo) {
+      // a sixteenth needs about 26 px to be readable in the notation
+      const needed = 26 / (60 / tempo.bpm / 4);
+      if (needed > pps) setAutoZoom({ pps: needed, time: tempo.downbeat });
+    }
+  }
+  useLayoutEffect(() => {
+    if (!autoZoom) return;
+    // only ever zoom in automatically, never out of the user's own zoom
+    const next = Math.min(MAX_PPS, Math.max(autoZoom.pps, ppsRef.current));
+    anchor.current = { time: autoZoom.time, x: 40 };
+    if (Math.abs(next - ppsRef.current) < 0.01) {
+      const el = scrollerRef.current;
+      if (el) el.scrollLeft = Math.max(0, autoZoom.time * next - 40);
+      anchor.current = null;
+    } else {
+      setUserPps(next <= fitRef.current * 1.001 ? null : next);
+    }
+    setAutoZoom(null);
+  }, [autoZoom]);
+
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -280,6 +314,10 @@ export function Timeline({
   const onSurfaceMove = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     if (!d) return;
+    if ((e.buttons & 1) === 0) {
+      drag.current = null; // released outside: stop drawing the loop
+      return;
+    }
     if (!d.moved && Math.abs(e.clientX - d.startX) < DRAG_THRESHOLD_PX) return;
     d.moved = true;
     const t = timeAt(e.clientX);
@@ -653,6 +691,9 @@ export function Timeline({
                 onPointerMove={onSurfaceMove}
                 onPointerUp={onSurfaceUp}
                 onPointerCancel={onSurfaceUp}
+                onLostPointerCapture={() => {
+                  drag.current = null;
+                }}
               />
             ) : (
               <Box
@@ -927,4 +968,21 @@ function NotationHeader({ beatsPerBar, bpm }: { beatsPerBar: number | null; bpm:
       )}
     </Box>
   );
+}
+
+/**
+ * Zoom where notes can be read: the typical gap between onsets gets about 32 px
+ * (room for a note name in the piano roll and a sixteenth in the notation).
+ */
+function readablePps(starts: number[]) {
+  const onsets = [...starts].sort((a, b) => a - b);
+  const gaps: number[] = [];
+  for (let i = 1; i < onsets.length; i++) {
+    const g = onsets[i] - onsets[i - 1];
+    if (g > 0.03) gaps.push(g); // chord notes are one onset
+  }
+  if (gaps.length === 0) return 0;
+  gaps.sort((a, b) => a - b);
+  const median = gaps[Math.floor(gaps.length / 2)];
+  return 32 / median;
 }
