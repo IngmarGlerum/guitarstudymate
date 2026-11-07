@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type PointerEvent,
+  type ReactNode,
 } from 'react';
 import {
   LuAudioWaveform,
@@ -36,11 +37,13 @@ import {
   drawRuler,
   drawWaveform,
   layoutNotes,
+  noteAt,
   type BarGrid,
 } from './drawing';
 import { ViewMenu } from './ViewMenu';
 import { useViewPrefs } from './viewPrefs';
-import { drawNotation, drawStaffHeader, MIN_BAR_PX } from './drawNotation';
+import { drawNotation, drawStaffHeader, MIN_BAR_PX, pitchesAt } from './drawNotation';
+import { previewNotes } from '../../technique/preview';
 import { LoopHandle } from './LoopHandle';
 import { LoopMover } from './LoopMover';
 import { useWindowedCanvas, type DrawFn } from './useWindowedCanvas';
@@ -55,9 +58,15 @@ const MAX_PPS = 800;
 const ZOOM_STEP = 1.5;
 const DRAG_THRESHOLD_PX = 4;
 
+/** placeholder length of the empty timeline before a recording is loaded */
+const EMPTY_SECONDS = 30;
+
 interface Props {
   transport: Transport;
-  track: TrackInfo;
+  /** null until a recording is loaded: the lanes are shown empty */
+  track: TrackInfo | null;
+  /** shown in the audio lane while there is no recording (the drop zone) */
+  emptyLane?: ReactNode;
   transcription: Transcription;
   onTranscribe: () => void;
   notation: Notation;
@@ -75,9 +84,16 @@ const STAGE_LABEL = {
  * the same horizontally scrolling content box, so x = time × pixels-per-second
  * holds for all of them, and one playhead and loop region cut through all lanes.
  */
-export function Timeline({ transport, track, transcription, onTranscribe, notation }: Props) {
+export function Timeline({
+  transport,
+  track,
+  emptyLane,
+  transcription,
+  onTranscribe,
+  notation,
+}: Props) {
   const { peaks, loop, loopEnabled, setLoop, seek, getTime } = transport;
-  const duration = track.duration;
+  const duration = track?.duration ?? EMPTY_SECONDS;
   const { tempo, bars } = notation;
 
   // rulers stack at the top; every lane below moves with their total height
@@ -275,7 +291,26 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
-    if (d && !d.moved && e.type === 'pointerup') seek(d.startT);
+    if (d && !d.moved && e.type === 'pointerup') {
+      seek(d.startT);
+      playNoteUnder(e.clientX, e.clientY);
+    }
+  };
+
+  /** A click on a written note or a piano-roll note also plays it. */
+  const playNoteUnder = (clientX: number, clientY: number) => {
+    const content = contentRef.current;
+    if (!content) return;
+    const r = content.getBoundingClientRect();
+    const x = clientX - r.left;
+    const y = clientY - r.top;
+    if (y >= NOTATION_TOP && y < NOTES_TOP && tempo) {
+      const midis = pitchesAt(x, pps, tempo, bars);
+      if (midis) previewNotes(midis);
+    } else if (y >= NOTES_TOP) {
+      const n = noteAt(noteLayout, NOTES_H, x / pps, y - NOTES_TOP, 4 / pps);
+      if (n) previewNotes([n.midi]);
+    }
   };
 
   const loopTint = loopEnabled ? 'rgba(201,73,47,0.17)' : 'rgba(191,174,142,0.08)';
@@ -301,30 +336,36 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
             fontWeight="500"
             lineHeight="1.2"
             lineClamp={1}
-            title={track.name}
+            title={track?.name}
+            color={track ? 'fg' : 'fg.muted'}
           >
-            {track.name}
+            {track ? track.name : 'Nog geen opname'}
           </Text>
           <Text fontSize="xs" color="fg.muted" mt="0.5" fontVariantNumeric="tabular-nums">
-            {formatTime(duration)} · {track.channels === 1 ? 'Mono' : 'Stereo'} ·{' '}
-            {formatBytes(track.size)}
+            {track
+              ? `${formatTime(duration)} · ${track.channels === 1 ? 'Mono' : 'Stereo'} · ${formatBytes(track.size)}`
+              : 'Sleep een bestand in de audiotrack of kies er een.'}
           </Text>
         </Box>
 
         <Flex align="center" gap="1" wrap="wrap">
-          <TranscribeControls
-            transcription={transcription}
-            onTranscribe={onTranscribe}
-            onExport={() => downloadDocument(toDocument(notation.kept, track.name, duration))}
-          />
-          <Box w="1px" h="5" bg="border" mx="1.5" aria-hidden="true" />
+          {track && (
+            <>
+              <TranscribeControls
+                transcription={transcription}
+                onTranscribe={onTranscribe}
+                onExport={() => downloadDocument(toDocument(notation.kept, track.name, duration))}
+              />
+              <Box w="1px" h="5" bg="border" mx="1.5" aria-hidden="true" />
+            </>
+          )}
           <ViewMenu prefs={view} onChange={setView} />
           <Hint label="Uitzoomen">
             <IconButton
               aria-label="Uitzoomen"
               size="xs"
               variant="ghost"
-              disabled={atFit}
+              disabled={!track || atFit}
               onClick={() => zoomTo(pps / ZOOM_STEP)}
             >
               <LuZoomOut />
@@ -335,7 +376,7 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
               aria-label="Inzoomen"
               size="xs"
               variant="ghost"
-              disabled={pps >= MAX_PPS}
+              disabled={!track || pps >= MAX_PPS}
               onClick={() => zoomTo(pps * ZOOM_STEP)}
             >
               <LuZoomIn />
@@ -346,7 +387,7 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
               aria-label="Hele opname in beeld"
               size="xs"
               variant="ghost"
-              disabled={atFit}
+              disabled={!track || atFit}
               onClick={() => setUserPps(null)}
             >
               <LuMaximize2 />
@@ -367,7 +408,9 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
         </Flex>
       </Flex>
 
-      <NotationControls notation={notation} getTime={getTime} totalNotes={notes?.length ?? 0} />
+      {track && (
+        <NotationControls notation={notation} getTime={getTime} totalNotes={notes?.length ?? 0} />
+      )}
 
       <Flex align="stretch">
         {/* lane header, where the notation and tab lanes will get their own */}
@@ -570,7 +613,7 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
                 aria-hidden="true"
                 css={{ filter: 'drop-shadow(0 0 4px rgba(240,180,90,0.22))' }}
               />
-              <NotesLaneMessage transcription={transcription} top={NOTES_TOP} />
+              <NotesLaneMessage transcription={transcription} top={NOTES_TOP} hasTrack={!!track} />
             </Box>
 
             {/* loop region */}
@@ -600,16 +643,29 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
             )}
 
             {/* click = seek, drag = new loop */}
-            <Box
-              position="absolute"
-              inset="0"
-              zIndex={2}
-              touchAction="pan-x pinch-zoom"
-              onPointerDown={onSurfaceDown}
-              onPointerMove={onSurfaceMove}
-              onPointerUp={onSurfaceUp}
-              onPointerCancel={onSurfaceUp}
-            />
+            {track ? (
+              <Box
+                position="absolute"
+                inset="0"
+                zIndex={2}
+                touchAction="pan-x pinch-zoom"
+                onPointerDown={onSurfaceDown}
+                onPointerMove={onSurfaceMove}
+                onPointerUp={onSurfaceUp}
+                onPointerCancel={onSurfaceUp}
+              />
+            ) : (
+              <Box
+                position="absolute"
+                top={`${RULER_H}px`}
+                left="0"
+                w={`${viewportW}px`}
+                h={`${WAVE_H}px`}
+                zIndex={5}
+              >
+                {emptyLane}
+              </Box>
+            )}
 
             {loop && (
               <>
@@ -641,6 +697,7 @@ export function Timeline({ transport, track, transcription, onTranscribe, notati
             {/* playhead */}
             <Box
               ref={playheadRef}
+              display={track ? 'block' : 'none'}
               position="absolute"
               top="0"
               bottom="0"
@@ -715,10 +772,19 @@ function TranscribeControls({
 }
 
 /** Empty, busy and error states, centred in the visible part of the notes lane. */
-function NotesLaneMessage({ transcription, top }: { transcription: Transcription; top: number }) {
+function NotesLaneMessage({
+  transcription,
+  top,
+  hasTrack,
+}: {
+  transcription: Transcription;
+  top: number;
+  hasTrack: boolean;
+}) {
   const { status, progress, notes, error, busy, backend } = transcription;
   let text: string | null = null;
-  if (status === 'idle') text = 'Kies ‘Noten herkennen’ om de noten uit de opname te halen.';
+  if (!hasTrack) text = 'Laad eerst een opname; daarna kun je hier de noten laten herkennen.';
+  else if (status === 'idle') text = 'Kies ‘Noten herkennen’ om de noten uit de opname te halen.';
   else if (busy) {
     const label = STAGE_LABEL[status as keyof typeof STAGE_LABEL];
     text = status === 'analyse' ? `${label}… ${Math.round(progress * 100)}%` : `${label}…`;

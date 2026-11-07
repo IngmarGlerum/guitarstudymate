@@ -201,3 +201,27 @@ function drawLetRing(
     ctx.fill();
   });
 }
+
+/**
+ * The written note or chord under a click in the notation lane: inverse of the
+ * x placement in `drawNotation`. Returns sounding MIDI pitches, or null for a rest.
+ */
+export function pitchesAt(
+  xContent: number,
+  pps: number,
+  tempo: Tempo & { bpm: number },
+  bars: Map<number, Bar>,
+): number[] | null {
+  const barDur = barDuration(tempo);
+  const barW = barDur * pps;
+  if (barW < MIN_BAR_PX) return null;
+  const index = Math.floor((xContent / pps - tempo.downbeat) / barDur);
+  const bar = bars.get(index);
+  if (!bar) return null;
+  const x0 = barStart(tempo, index) * pps;
+  const barTicks = tempo.beatsPerBar * TICKS_PER_BEAT;
+  const tick = ((xContent - x0 - BAR_PAD) / (barW - BAR_PAD)) * barTicks;
+  // the notehead sits at the start of its sixteenth: allow half a sixteenth either side
+  const piece = bar.pieces.find((p) => tick >= p.tick - 0.5 && tick < p.tick + Math.max(1, p.ticks) - 0.5);
+  return piece?.midis ?? null;
+}

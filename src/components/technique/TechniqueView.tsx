@@ -1,5 +1,5 @@
 import { Box, Button, chakra, Flex, IconButton, SegmentGroup, Slider, Switch, Text } from '@chakra-ui/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { LuBookmark, LuPlay, LuSquare } from 'react-icons/lu';
 import { overlayContext, useCanvas } from '../../hooks/useCanvas';
 import { useFrame } from '../../hooks/useFrame';
@@ -16,6 +16,8 @@ import { PracticeEngine } from '../../technique/engine';
 import { fingeringFor, formulaFor, layoutPass } from '../../technique/exercise';
 import { usePresets } from '../../technique/presets';
 import { useExerciseSettings } from '../../technique/settings';
+import type { FretNote } from '../../technique/fingering';
+import { previewNotes } from '../../technique/preview';
 import { pcName, ROOTS } from '../../technique/theory';
 import { Hint } from '../Hint';
 import { ExerciseSettingsPanel } from './ExerciseSettingsPanel';
@@ -159,9 +161,42 @@ export function TechniqueView({ active }: { active: boolean }) {
   useCanvas(neckRef, view === 'neck' ? neck.width : 0, NECK_H, drawNeckBase);
   useCanvas(neckOverlayRef, view === 'neck' ? neck.width : 0, NECK_H, noop);
 
+  // ---- click a note (staff, tab or neck) to hear it; it lights up briefly ----
+  const preview = useRef<{ slot: number; note: FretNote; until: number } | null>(null);
+  const PREVIEW_MS = 450;
+  const onScoreClick = (e: MouseEvent<HTMLCanvasElement>) => {
+    const x = e.clientX - e.currentTarget.getBoundingClientRect().left;
+    let best = -1;
+    let dist = 16; // px tolerance around the notehead
+    layout.slots.forEach((n, i) => {
+      const d = n ? Math.abs(layout.noteX(i) + 6 - x) : Infinity;
+      if (d < dist) {
+        dist = d;
+        best = i;
+      }
+    });
+    const note = best >= 0 ? layout.slots[best] : null;
+    if (!note) return;
+    previewNotes([note.midi]);
+    preview.current = { slot: best, note, until: performance.now() + PREVIEW_MS };
+  };
+  const onNeckClick = (e: MouseEvent<HTMLCanvasElement>) => {
+    if (!fingering) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    const hit = fingering.notes.find(
+      (n) => Math.hypot(neck.noteX(n.fret) - x, neck.stringY(n.string) - y) <= 13,
+    );
+    if (!hit) return;
+    previewNotes([hit.midi]);
+    const slot = layout.slots.findIndex((s) => s === hit);
+    preview.current = { slot, note: hit, until: performance.now() + PREVIEW_MS };
+  };
+
   // ---- sync: redraw the highlights only when the sounding slot changes ----
   const statusRef = useRef<HTMLSpanElement>(null);
-  const shown = useRef({ slot: -2, key: '' });
+  const shown = useRef({ slot: -2, key: '', previewNote: null as FretNote | null });
   const frameState = useRef({ layout, neck, showTab, flats, view });
   useEffect(() => {
     frameState.current = { layout, neck, showTab, flats, view };
@@ -169,21 +204,24 @@ export function TechniqueView({ active }: { active: boolean }) {
   });
   useFrame(() => {
     const pos = engineRef.current?.position() ?? null;
-    const slot = pos ? pos.slot : -2;
+    // while stopped, a clicked note lights up for a moment
+    const pv = !pos && preview.current && performance.now() < preview.current.until ? preview.current : null;
+    const slot = pos ? pos.slot : pv ? pv.slot : -2;
+    const neckNote = pv ? pv.note : slot >= 0 ? (frameState.current.layout.slots[slot] ?? null) : null;
     const st = frameState.current;
     const key = `${st.view}|${st.showTab}|${st.layout.width}|${st.neck.width}`;
-    if (slot === shown.current.slot && key === shown.current.key) return;
-    shown.current = { slot, key };
+    if (slot === shown.current.slot && key === shown.current.key && neckNote === shown.current.previewNote) return;
+    shown.current = { slot, key, previewNote: neckNote };
     if (statusRef.current) {
       statusRef.current.textContent = pos?.countIn ? 'Voortellen…' : '';
     }
     const sctx = overlayContext(scoreOverlayRef.current);
     if (sctx) drawScoreHighlight(sctx, st.layout, slot, st.showTab);
     const nctx = st.view === 'neck' ? overlayContext(neckOverlayRef.current) : null;
-    if (nctx) drawNeckHighlight(nctx, st.neck, slot >= 0 ? (st.layout.slots[slot] ?? null) : null, st.flats);
+    if (nctx) drawNeckHighlight(nctx, st.neck, neckNote, st.flats);
     // keep the current note in view
     const scroller = scoreScroller.current;
-    if (scroller && slot >= 0) {
+    if (scroller && slot >= 0 && !pv) {
       const x = st.layout.noteX(slot);
       if (x < scroller.scrollLeft + 40 || x > scroller.scrollLeft + scroller.clientWidth - 60) {
         scroller.scrollLeft = Math.max(0, x - scroller.clientWidth * 0.25);
@@ -237,7 +275,14 @@ export function TechniqueView({ active }: { active: boolean }) {
         ) : (
           <Box position="relative" w={`${layout.width}px`} h={`${scoreH}px`}>
             <chakra.canvas ref={scoreRef} position="absolute" inset="0" aria-hidden="true" />
-            <chakra.canvas ref={scoreOverlayRef} position="absolute" inset="0" aria-hidden="true" />
+            <chakra.canvas
+              ref={scoreOverlayRef}
+              position="absolute"
+              inset="0"
+              aria-hidden="true"
+              cursor="pointer"
+              onClick={onScoreClick}
+            />
           </Box>
         )}
       </Box>
@@ -276,7 +321,14 @@ export function TechniqueView({ active }: { active: boolean }) {
         <Box ref={neckBox} overflowX="auto" bg="#140d09" borderTopWidth="1px" borderColor="border">
           <Box position="relative" w={`${neck.width}px`} h={`${NECK_H}px`}>
             <chakra.canvas ref={neckRef} position="absolute" inset="0" aria-hidden="true" />
-            <chakra.canvas ref={neckOverlayRef} position="absolute" inset="0" aria-hidden="true" />
+            <chakra.canvas
+              ref={neckOverlayRef}
+              position="absolute"
+              inset="0"
+              aria-hidden="true"
+              cursor="pointer"
+              onClick={onNeckClick}
+            />
           </Box>
         </Box>
       )}

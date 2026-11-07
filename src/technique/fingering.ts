@@ -20,12 +20,15 @@ export interface Fingering {
 /** Normal stretch on one string; with four notes per string a slide is allowed instead. */
 export const MAX_SPAN = 5;
 
-/** Ascending scale/chord tones from `startDegree`, as MIDI numbers, starting in fret range 0–11 on low E. */
-function* tonesFrom(formula: Formula, rootPc: number, startDegree: number) {
+/**
+ * Ascending scale/chord tones from `startDegree`, as MIDI numbers. The first tone
+ * sits on low E at fret 0–11, or an octave higher (12–23) with `octave` = 1.
+ */
+function* tonesFrom(formula: Formula, rootPc: number, startDegree: number, octave = 0) {
   const iv = formula.intervals;
   const n = iv.length;
   const firstPc = (rootPc + iv[startDegree - 1]) % 12;
-  const firstFret = (firstPc - (TUNING[0] % 12) + 12) % 12;
+  const firstFret = ((firstPc - (TUNING[0] % 12) + 12) % 12) + 12 * octave;
   const base = TUNING[0] + firstFret - iv[startDegree - 1]; // midi of the root just below/at the first note
   for (let k = startDegree - 1; ; k++) {
     const octave = Math.floor(k / n);
@@ -44,8 +47,23 @@ export function scaleFingering(
   startDegree: number,
   perString: number,
 ): Fingering | null {
+  // Lowest first; if the shape runs below the open strings (e.g. an augmented
+  // second right at fret 0) try the same position an octave up.
+  return (
+    scaleFingeringAt(formula, rootPc, startDegree, perString, 0) ??
+    scaleFingeringAt(formula, rootPc, startDegree, perString, 1)
+  );
+}
+
+function scaleFingeringAt(
+  formula: Formula,
+  rootPc: number,
+  startDegree: number,
+  perString: number,
+  octave: number,
+): Fingering | null {
   const notes: FretNote[] = [];
-  const tones = tonesFrom(formula, rootPc, startDegree);
+  const tones = tonesFrom(formula, rootPc, startDegree, octave);
   for (let s = 0; s < TUNING.length; s++) {
     const onString: FretNote[] = [];
     for (let i = 0; i < perString; i++) {

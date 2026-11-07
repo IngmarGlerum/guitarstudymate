@@ -47,7 +47,8 @@ stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespel
 
 ## Meespelen
 
-- **Upload**: kies een bestand of sleep het ergens op het venster (WAV, MP3, M4A, OGG, FLAC, tot 15 minuten). Het bestand blijft in je browser.
+- **Upload**: de trackweergave staat er meteen; in de audiotrack zit een sleepvlak. Kies een bestand of sleep het ergens op het venster (WAV, MP3, M4A, OGG, FLAC, tot 15 minuten). Het bestand blijft in je browser.
+- **Noot aanklikken**: een klik op een geschreven noot of een noot in de pianorol laat die noot horen (en zet de afspeelkop daar). In Techniek werkt dat op de notenbalk, de tab en de hals.
 - **Golfvorm** met tijdlineaal. Het gespeelde deel licht op, de rest blijft gedempt.
 - **Afspeelkop** die over de hele lane loopt. Klik om te zoeken.
 - **Loop**: sleep over de golfvorm om een loop te maken, of pak de locators in de lineaal om hem bij te stellen.
@@ -111,7 +112,7 @@ src/
     TransportBar.tsx       bediening onder de lane
     NotationControls.tsx   tempo, tik, maatsoort, tel 1, drempel, stilte
     timeline/ViewMenu.tsx  menu Weergave: lineaals en raster (voorkeur in viewPrefs.ts)
-    UploadDropzone.tsx     lege toestand
+    UploadDropzone.tsx     sleepvlak in de audiotrack zolang er geen opname is
   theme/                   Chakra-systeem, kleuren en texturen
   hooks/                   sneltoetsen, bestanden slepen, animatieframe
 ```

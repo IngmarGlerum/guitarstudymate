@@ -90,7 +90,16 @@ Oefenmachine" (claude.ai/artifact/UwC4ARkj4LRDs7kxjiMw9Q):
   `src/components/technique/`. Vingerzetting toonladder = de ladder in volgorde, `perString` noten per
   snaar van lage naar hoge E, rek per snaar ≤ 5 frets (bij 4 noten per snaar een slide op de tweede noot).
   Arpeggio = akkoordtonen in volgorde, liefst op de volgende snaar binnen de positie (anchor −1 tot +5).
-  Dubbele posities: zelfde relatieve vorm wordt weggelaten.
+  Dubbele posities: zelfde relatieve vorm wordt weggelaten. Een positie begint op de lage E op fret 0–11;
+  past hij daar niet (bijvoorbeeld een overmatige secunde vlak boven fret 0), dan een octaaf hoger (12–23).
+  Zo hebben ladders met 7 tonen bij 2 en 3 noten per snaar altijd 7 posities. Bij 4 noten per snaar lopen
+  hoge posities voorbij fret 22 (24 noten, ruim 3,5 octaaf) en vallen weg: meestal 4 of 5 posities.
+- Een klik op een noot speelt hem af via `technique/preview.ts` (eigen kleine AudioContext, dezelfde
+  Karplus-Strong-snaar). In Meespelen: `pitchesAt` (notatie) en `noteAt` (pianorol), naast het zoeken.
+- Zonder opname toont Meespelen de lege trackweergave (`Timeline` met `track = null`, 30 s placeholder-as);
+  het sleepvlak (`UploadDropzone`) zit in de audiotrack, de afspeelbalk is gedimd en inert.
+- De modusschakelaar staat rechts in de kop; "Ander bestand" staat links ervan, zodat de schakelaar niet
+  verschuift.
 - `PracticeEngine` plant noten en klikken 150 ms vooruit op `AudioContext.currentTime` (timer 25 ms,
   nooit setTimeout voor de timing zelf). De UI vraagt in `useFrame` `position()` op (met output-latency)
   en tekent alleen de highlight-canvassen opnieuw als de klinkende noot wisselt. Een herhaling wordt
