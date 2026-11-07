@@ -349,3 +349,23 @@ export function drawNotes(
     }
   }
 }
+
+/** The piano-roll note under a click, using the same row layout as `drawNotes`. */
+export function noteAt(
+  layout: NoteLayout,
+  height: number,
+  time: number,
+  y: number,
+  slack: number,
+): DisplayNote | null {
+  const pad = 6;
+  const rowH = (height - pad * 2) / (layout.high - layout.low + 1);
+  const midi = Math.round(layout.high - (y - pad - rowH / 2) / rowH);
+  let best: DisplayNote | null = null;
+  for (const n of layout.notes) {
+    if (Math.abs(n.midi - midi) > 0) continue;
+    if (time < n.start - slack || time > n.start + n.duration + slack) continue;
+    if (!best || Math.abs(n.start - time) < Math.abs(best.start - time)) best = n;
+  }
+  return best;
+}

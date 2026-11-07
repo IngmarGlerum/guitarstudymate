@@ -106,7 +106,19 @@ export default function App() {
               Guitar Study Mate
             </Heading>
           </Flex>
+          {/* the mode switch stays put at the far right; the file button sits to its left */}
           <Flex align="center" gap="3">
+            {ready && mode === 'play' && (
+              <Button
+                variant="outline"
+                colorPalette="brass"
+                size="sm"
+                onClick={openPicker}
+                display={{ base: 'none', sm: 'inline-flex' }}
+              >
+                <LuUpload /> Ander bestand
+              </Button>
+            )}
             <SegmentGroup.Root
               size="sm"
               value={mode}
@@ -121,17 +133,6 @@ export default function App() {
                 ]}
               />
             </SegmentGroup.Root>
-            {ready && mode === 'play' && (
-              <Button
-                variant="outline"
-                colorPalette="brass"
-                size="sm"
-                onClick={openPicker}
-                display={{ base: 'none', sm: 'inline-flex' }}
-              >
-                <LuUpload /> Ander bestand
-              </Button>
-            )}
           </Flex>
         </Flex>
       </Box>
@@ -140,7 +141,7 @@ export default function App() {
         <Box display={mode === 'technique' ? 'block' : 'none'}>
           <TechniqueView active={mode === 'technique'} />
         </Box>
-        {mode === 'technique' ? null : ready ? (
+        {mode === 'play' && (
           <Box
             rounded="lg"
             overflow="hidden"
@@ -150,17 +151,26 @@ export default function App() {
             css={{ boxShadow: `0 24px 70px rgba(0,0,0,0.5), 0 0 90px rgba(217,164,65,0.06)` }}
           >
             <Timeline
-              key={`${track.name}-${track.size}-${track.duration}`}
+              key={ready ? `${track.name}-${track.size}-${track.duration}` : 'empty'}
               transport={transport}
-              track={track}
+              track={ready ? track : null}
+              emptyLane={
+                <UploadDropzone status={status} error={error} dragging={dragging} onPick={openPicker} />
+              }
               transcription={transcription}
               onTranscribe={transcribe}
               notation={notation}
             />
-            <TransportBar transport={transport} />
+            {/* the transport only makes sense with a recording */}
+            <Box
+              opacity={ready ? 1 : 0.45}
+              pointerEvents={ready ? 'auto' : 'none'}
+              aria-disabled={!ready}
+              inert={!ready}
+            >
+              <TransportBar transport={transport} />
+            </Box>
           </Box>
-        ) : (
-          <UploadDropzone status={status} error={error} dragging={dragging} onPick={openPicker} />
         )}
       </Box>
 
