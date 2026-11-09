@@ -181,6 +181,7 @@ export function drawNeckProgression(
   sounding: FretNote | null,
   windowLo: number,
   flats: boolean,
+  approaches: FretNote[] = [],
 ) {
   // the window as a soft band behind the dots
   const x1 = windowLo === 0 ? 0 : layout.fretX(Math.max(0, windowLo - 1));
@@ -188,6 +189,18 @@ export function drawNeckProgression(
   ctx.fillStyle = 'rgba(240,180,90,0.07)';
   ctx.fillRect(x1, layout.stringY(5) - 14, x2 - x1, layout.stringY(0) - layout.stringY(5) + 28);
   for (const n of box) drawDot(ctx, layout, n, false, flats);
+  // approach notes (enclosures): a dashed ring, also outside the window
+  for (const n of approaches) {
+    if (!box.some((b) => b.string === n.string && b.fret === n.fret)) drawDot(ctx, layout, n, false, flats);
+    ctx.save();
+    ctx.setLineDash([3, 3]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = palette.honey;
+    ctx.beginPath();
+    ctx.arc(layout.noteX(n.fret), layout.stringY(n.string), 13.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   if (target) {
     const x = layout.noteX(target.fret);
     const y = layout.stringY(target.string);

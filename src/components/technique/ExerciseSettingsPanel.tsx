@@ -21,6 +21,7 @@ interface Props {
   perStringOptions: number[];
   positionOptions: PositionOption[];
   onEditPattern: () => void;
+  onEditFillPattern: () => void;
   prog?: ProgressionState;
 }
 
@@ -31,6 +32,7 @@ export function ExerciseSettingsPanel({
   perStringOptions,
   positionOptions,
   onEditPattern,
+  onEditFillPattern,
   prog,
 }: Props) {
   const flats = ROOTS.find((r) => r.pc === settings.rootPc)?.flats ?? false;
@@ -69,7 +71,7 @@ export function ExerciseSettingsPanel({
         </Field>
       )}
       {isProg ? (
-        <ProgressionFields settings={settings} update={update} prog={prog!} />
+        <ProgressionFields settings={settings} update={update} prog={prog!} onEditFillPattern={onEditFillPattern} />
       ) : (
         <>
       {arpeggio ? (
@@ -149,7 +151,9 @@ export function ExerciseSettingsPanel({
           <NumberInput.Input aria-label="Tempo in tellen per minuut" />
         </NumberInput.Root>
       </Field>
-      {(!isProg || settings.content === 'scale') && (
+      {(!isProg ||
+        settings.content === 'scale' ||
+        (settings.content === 'enclosures' && (settings.fill === 'scale' || settings.fill === 'arpeggio'))) && (
       <Select
         label="Richting"
         value={settings.direction}

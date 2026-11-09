@@ -1,7 +1,16 @@
 import { useCallback, useMemo } from 'react';
 import type { ExerciseSettings } from './exercise';
 import type { Key } from './harmony';
-import { buildProgressionPass, choicesForPass, planProgression, type ProgressionPass } from './progressionExercise';
+import { enclosureById, type EnclosureForm } from './enclosures';
+import {
+  buildProgressionPass,
+  choicesForPass,
+  enclosureFits,
+  planProgression,
+  targetsOf,
+  type PassOptions,
+  type ProgressionPass,
+} from './progressionExercise';
 import { BUILTIN_PROGRESSIONS, parseProgression, segmentsOf, type Segment } from './progressions';
 
 export function progressionText(s: ExerciseSettings) {
@@ -37,23 +46,49 @@ export function useProgression(s: ExerciseSettings) {
   const plan = useMemo(() => planProgression(segs, keyOverride), [segs, keyOverride]);
   const autoKey = useMemo(() => planProgression(segs, null).key, [segs]);
 
+  // enclosures: do the forms fit the harmonic rhythm? If not, play faster or shorter
+  const enclosures = s.content === 'enclosures';
+  const forms = useMemo(
+    () => s.enclosureIds.map(enclosureById).filter((f): f is EnclosureForm => !!f),
+    [s.enclosureIds],
+  );
+  const fitsAsIs = !enclosures || enclosureFits(segs, forms, s.subdivision);
+  let subdivision = s.subdivision;
+  if (!fitsAsIs && (s.fitMode === 'sixteenths' || s.fitMode === 'triplets')) {
+    subdivision = Math.max(s.subdivision, s.fitMode === 'sixteenths' ? 4 : 3) as typeof s.subdivision;
+  }
+  /** shortened enclosures even after speeding up (or by choice) */
+  const shortened = enclosures && !enclosureFits(segs, forms, subdivision);
+
   const passFor = useCallback(
     (pass: number): ProgressionPass & { routeIds: Map<string, string> } => {
-      const { choices, routeIds } = choicesForPass(plan, s.routeLayer, s.routeOff, s.routeOrder, pass);
-      const built = buildProgressionPass(segs, choices, {
-        subdivision: s.subdivision,
+      const o: PassOptions = {
+        subdivision,
         content: s.content,
         targetMode: s.targetMode,
         windowLo: s.windowLo,
         follow: s.followPosition,
         direction: s.direction,
-      });
-      return { ...built, routeIds };
+      };
+      const { choices, routeIds } = choicesForPass(plan, s.routeLayer, s.routeOff, s.routeOrder, pass);
+      if (enclosures) {
+        const next = choicesForPass(plan, s.routeLayer, s.routeOff, s.routeOrder, pass + 1).choices;
+        o.enclosure = {
+          forms,
+          order: s.enclosureOrder,
+          rhythm: s.enclosureRhythm,
+          fill: s.fill,
+          pattern: s.pattern,
+          pass,
+          wrapTarget: targetsOf(segs, next, o).targets[0] ?? null,
+        };
+      }
+      return { ...buildProgressionPass(segs, choices, o), routeIds };
     },
-    [plan, segs, s.routeLayer, s.routeOff, s.routeOrder, s.subdivision, s.content, s.targetMode, s.windowLo, s.followPosition, s.direction],
+    [plan, segs, subdivision, enclosures, forms, s.routeLayer, s.routeOff, s.routeOrder, s.content, s.targetMode, s.windowLo, s.followPosition, s.direction, s.enclosureOrder, s.enclosureRhythm, s.fill, s.pattern],
   );
 
-  return { parsed, totalBars, from, to, segs, plan, autoKey, passFor };
+  return { parsed, totalBars, from, to, segs, plan, autoKey, passFor, subdivision, fitsAsIs, shortened, forms };
 }
 
 export type ProgressionState = ReturnType<typeof useProgression>;

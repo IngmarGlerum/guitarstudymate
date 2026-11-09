@@ -5,6 +5,7 @@ import {
   SUBDIVISIONS,
   type ExerciseSettings,
 } from './exercise';
+import { enclosureById } from './enclosures';
 import { perStringOptions, positions } from './fingering';
 import { ARPEGGIOS, ROOTS, SCALES } from './theory';
 
@@ -22,7 +23,13 @@ export function normalize(raw: Partial<ExerciseSettings>): ExerciseSettings {
   s.barFrom = Math.max(1, Math.round(Number(s.barFrom) || 1));
   s.barTo = Math.max(0, Math.round(Number(s.barTo) || 0));
   if (s.barTo && s.barTo < s.barFrom) s.barTo = s.barFrom;
-  if (s.content !== 'scale') s.content = 'targets';
+  if (s.content !== 'scale' && s.content !== 'enclosures') s.content = 'targets';
+  if (!Array.isArray(s.enclosureIds)) s.enclosureIds = DEFAULT_SETTINGS.enclosureIds;
+  s.enclosureIds = [...new Set(s.enclosureIds.filter((id) => typeof id === 'string' && enclosureById(id)))];
+  if (s.enclosureOrder !== 'random') s.enclosureOrder = 'sequence';
+  if (!['onBeat', 'anticipation', 'suspension'].includes(s.enclosureRhythm)) s.enclosureRhythm = 'onBeat';
+  if (!['rest', 'scale', 'arpeggio', 'pattern'].includes(s.fill)) s.fill = 'rest';
+  if (!['ask', 'sixteenths', 'triplets', 'shorter'].includes(s.fitMode)) s.fitMode = 'ask';
   if (s.targetMode !== 'all') s.targetMode = 'guide';
   s.windowLo = Math.max(0, Math.min(17, Math.round(Number(s.windowLo) || 0)));
   s.followPosition = s.followPosition !== false;
