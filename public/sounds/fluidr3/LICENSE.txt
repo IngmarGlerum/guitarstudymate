@@ -1,0 +1,10 @@
+Bass and piano samples: FluidR3_GM General MIDI soundfont by Frank Wen,
+as rendered to MP3 by Benjamin Gleitzman in "midi-js-soundfonts"
+(https://github.com/gleitz/midi-js-soundfonts).
+
+Licensed under Creative Commons Attribution 3.0
+(https://creativecommons.org/licenses/by/3.0/).
+
+Changes: only every third semitone of acoustic_bass (MIDI 28-58),
+acoustic_grand_piano and electric_piano_1 (MIDI 43-82) is kept, one MP3 file
+per note named by its MIDI number. Other pitches are played by resampling.

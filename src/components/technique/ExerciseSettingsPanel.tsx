@@ -5,6 +5,7 @@ import type { PositionOption } from '../../technique/fingering';
 import { SUBDIVISIONS, type ExerciseSettings } from '../../technique/exercise';
 import { BPM_MAX, BPM_MIN } from '../../technique/settings';
 import { ARPEGGIOS, pcName, ROOTS, SCALES, STRING_NAMES } from '../../technique/theory';
+import { FAMILY_LABEL, libraryEntry } from '../../technique/library';
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -27,9 +28,16 @@ function Select({
   label: string;
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; group?: string }[];
   w?: string;
 }) {
+  // consecutive options with the same group go into one <optgroup>
+  const groups: { group?: string; items: typeof options }[] = [];
+  for (const o of options) {
+    const last = groups[groups.length - 1];
+    if (last && last.group === o.group) last.items.push(o);
+    else groups.push({ group: o.group, items: [o] });
+  }
   return (
     <Field label={label}>
       <NativeSelect.Root size="sm" w={w}>
@@ -38,11 +46,23 @@ function Select({
           value={value}
           onChange={(e) => onChange(e.currentTarget.value)}
         >
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
+          {groups.map((g, i) =>
+            g.group ? (
+              <optgroup key={g.group} label={g.group}>
+                {g.items.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </optgroup>
+            ) : (
+              g.items.map((o) => (
+                <option key={`${i}-${o.value}`} value={o.value}>
+                  {o.label}
+                </option>
+              ))
+            ),
+          )}
         </NativeSelect.Field>
         <NativeSelect.Indicator />
       </NativeSelect.Root>
@@ -116,7 +136,11 @@ export function ExerciseSettingsPanel({
           label="Toonladder"
           value={settings.scaleId}
           onChange={(v) => update({ scaleId: v })}
-          options={SCALES.map((s) => ({ value: s.id, label: s.label }))}
+          options={SCALES.map((s) => ({
+            value: s.id,
+            label: s.label,
+            group: FAMILY_LABEL[libraryEntry(s.id)?.family ?? 'major'],
+          }))}
         />
       )}
       <Select
