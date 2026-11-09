@@ -23,10 +23,12 @@ interface Props {
   scaleChordName: string;
   /** chord names that could not be read from the custom line */
   unknown: string[];
+  /** a progression exercise: the combo plays its chords */
+  progression?: boolean;
 }
 
 /** The combo's controls: style, chords, piano sound and a small mixer. */
-export function AccompanimentPanel({ prefs, onChange, scaleChordName, unknown }: Props) {
+export function AccompanimentPanel({ prefs, onChange, scaleChordName, unknown, progression }: Props) {
   const set = (patch: Partial<AccompPrefs>) => onChange({ ...prefs, ...patch });
   const setPart = (part: PartId, patch: Partial<{ on: boolean; volume: number }>) =>
     set({ parts: { ...prefs.parts, [part]: { ...prefs.parts[part], ...patch } } });
@@ -61,6 +63,13 @@ export function AccompanimentPanel({ prefs, onChange, scaleChordName, unknown }:
           </NativeSelect.Root>
         </Labeled>
 
+        {progression ? (
+          <Labeled label="Akkoorden">
+            <Text fontSize="sm" h="8" display="flex" alignItems="center">
+              Die van de progressie
+            </Text>
+          </Labeled>
+        ) : (
         <Labeled label="Akkoorden">
           <NativeSelect.Root size="sm" w="210px" disabled={!prefs.on}>
             <NativeSelect.Field
@@ -74,8 +83,9 @@ export function AccompanimentPanel({ prefs, onChange, scaleChordName, unknown }:
             <NativeSelect.Indicator />
           </NativeSelect.Root>
         </Labeled>
+        )}
 
-        {prefs.source === 'custom' && (
+        {prefs.source === 'custom' && !progression && (
           <Labeled label="Eén akkoord per maat">
             <Input
               size="sm"
@@ -105,7 +115,7 @@ export function AccompanimentPanel({ prefs, onChange, scaleChordName, unknown }:
         </Labeled>
       </Flex>
 
-      {prefs.source === 'custom' && unknown.length > 0 && (
+      {prefs.source === 'custom' && !progression && unknown.length > 0 && (
         <Text fontSize="xs" color="cherry.300" mt="2" role="alert">
           Niet gelezen: {unknown.join(', ')}. Gebruik bijvoorbeeld Cmaj7, Dm7, G7, G7alt, F♯m7♭5 of B♭7♭9.
         </Text>

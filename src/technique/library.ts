@@ -193,6 +193,7 @@ function build(): LibraryEntry[] {
   raws.push(
     { id: 'penta-major', label: 'Pentatonisch majeur', kind: 'scale', family: 'pentatonic', intervals: [0, 2, 4, 7, 9], characterDegrees: ['6'], homeChord: '6' },
     { id: 'penta-minor', label: 'Pentatonisch mineur', kind: 'scale', family: 'pentatonic', intervals: [0, 3, 5, 7, 10], characterDegrees: ['♭3', '♭7'], homeChord: 'm7' },
+    { id: 'penta-minor6', label: 'Mineur-6-pentatoniek', kind: 'scale', family: 'pentatonic', intervals: [0, 3, 5, 7, 9], characterDegrees: ['♭3', '6'], homeChord: 'm6' },
     { id: 'octatonic-hw', label: 'Octatonisch (half–heel)', kind: 'scale', family: 'symmetric', intervals: [0, 1, 3, 4, 6, 7, 9, 10], characterDegrees: ['♭9', '♯9', '♯11'], homeChord: '7b9' },
     { id: 'octatonic-wh', label: 'Octatonisch (heel–half)', kind: 'scale', family: 'symmetric', intervals: [0, 2, 3, 5, 6, 8, 9, 11], characterDegrees: ['♭5', '♭6'], homeChord: 'dim7' },
     { id: 'whole-tone', label: 'Heletoons', kind: 'scale', family: 'symmetric', intervals: [0, 2, 4, 6, 8, 10], characterDegrees: ['♯4', '♯5'], homeChord: '7#5' },

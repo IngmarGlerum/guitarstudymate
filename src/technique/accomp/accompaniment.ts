@@ -1,6 +1,6 @@
 import type { Chord } from '../chords';
 import { DrumKit, Drone, Sampler, type SampleSet } from './instruments';
-import { generateBar, newStyleState, type StyleId, type StyleState } from './styles';
+import { generateBar, newStyleState, type BarSegment, type StyleId, type StyleState } from './styles';
 
 export type PartId = 'bass' | 'piano' | 'drums' | 'drone';
 
@@ -12,8 +12,8 @@ export interface PartSettings {
 export interface AccompConfig {
   on: boolean;
   style: StyleId;
-  /** the vamp: one chord per bar, repeating */
-  chords: Chord[];
+  /** the chords with their beats, repeating (a vamp or a progression) */
+  timeline: { chord: Chord; beats: number }[];
   pianoSound: Extract<SampleSet, 'acoustic_grand_piano' | 'electric_piano_1'>;
   /** MIDI note of the drone's root */
   droneRoot: number;
@@ -84,11 +84,10 @@ export class Accompaniment {
     if (!c.on) return;
     const at = (beat: number) => time + beat * beatSeconds;
     if (c.parts.drone.on) this.drone.play(c.droneRoot, time, beatSeconds * 4);
-    if (c.chords.length === 0) return;
-    const chord = c.chords[((bar % c.chords.length) + c.chords.length) % c.chords.length];
-    const next = c.chords[(((bar + 1) % c.chords.length) + c.chords.length) % c.chords.length];
+    const { segs, after } = barSegments(c.timeline, bar);
+    if (!segs.length) return;
     const piano = this.pianos[c.pianoSound];
-    for (const e of generateBar(c.style, chord, next, bar, bpm, this.state)) {
+    for (const e of generateBar(c.style, segs, after, bar, bpm, this.state)) {
       if (e.part === 'bass' && c.parts.bass.on) this.bass.play(e.midi, at(e.beat), e.dur * beatSeconds, e.vel);
       if (e.part === 'piano' && c.parts.piano.on) {
         for (const m of e.midis) piano.play(m, at(e.beat), e.dur * beatSeconds, e.vel);
@@ -100,4 +99,30 @@ export class Accompaniment {
   get context() {
     return this.ctx;
   }
+}
+
+/** The chords sounding in bar `bar` of a repeating timeline, and the chord after the bar. */
+export function barSegments(
+  timeline: { chord: Chord; beats: number }[],
+  bar: number,
+): { segs: BarSegment[]; after: Chord } {
+  const total = timeline.reduce((t, x) => t + x.beats, 0);
+  if (!timeline.length || total <= 0) return { segs: [], after: { rootPc: 0, type: 'maj7' } };
+  const at = (beat: number) => {
+    let b = ((beat % total) + total) % total;
+    for (let i = 0; i < timeline.length; i++) {
+      if (b < timeline[i].beats) return { i, into: b };
+      b -= timeline[i].beats;
+    }
+    return { i: 0, into: 0 };
+  };
+  const segs: BarSegment[] = [];
+  let beat = 0;
+  while (beat < 4) {
+    const { i, into } = at(bar * 4 + beat);
+    const len = Math.min(timeline[i].beats - into, 4 - beat);
+    segs.push({ chord: timeline[i].chord, start: beat, beats: len });
+    beat += len;
+  }
+  return { segs, after: timeline[at(bar * 4 + 4).i].chord };
 }

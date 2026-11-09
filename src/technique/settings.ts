@@ -15,7 +15,20 @@ export const BPM_MAX = 300;
 /** Fill gaps and fix impossible combinations (e.g. a position the new scale lacks). */
 export function normalize(raw: Partial<ExerciseSettings>): ExerciseSettings {
   const s: ExerciseSettings = { ...DEFAULT_SETTINGS, ...raw };
-  if (!['scale', 'arpeggio', 'pattern'].includes(s.kind)) s.kind = 'scale';
+  if (!['scale', 'arpeggio', 'pattern', 'progression'].includes(s.kind)) s.kind = 'scale';
+  if (typeof s.progressionText !== 'string') s.progressionText = DEFAULT_SETTINGS.progressionText;
+  if (typeof s.progressionId !== 'string') s.progressionId = DEFAULT_SETTINGS.progressionId;
+  if (typeof s.keyChoice !== 'string' || !/^(auto|\d{1,2}:(maj|min))$/.test(s.keyChoice)) s.keyChoice = 'auto';
+  s.barFrom = Math.max(1, Math.round(Number(s.barFrom) || 1));
+  s.barTo = Math.max(0, Math.round(Number(s.barTo) || 0));
+  if (s.barTo && s.barTo < s.barFrom) s.barTo = s.barFrom;
+  if (s.content !== 'scale') s.content = 'targets';
+  if (s.targetMode !== 'all') s.targetMode = 'guide';
+  s.windowLo = Math.max(0, Math.min(17, Math.round(Number(s.windowLo) || 0)));
+  s.followPosition = s.followPosition !== false;
+  if (!['inKey', 'common', 'adventurous'].includes(s.routeLayer)) s.routeLayer = 'common';
+  if (s.routeOrder !== 'random') s.routeOrder = 'sequence';
+  if (typeof s.routeOff !== 'object' || s.routeOff === null || Array.isArray(s.routeOff)) s.routeOff = {};
   if (!SCALES.some((x) => x.id === s.scaleId)) s.scaleId = DEFAULT_SETTINGS.scaleId;
   if (!ARPEGGIOS.some((x) => x.id === s.arpeggioId)) s.arpeggioId = DEFAULT_SETTINGS.arpeggioId;
   if (!ROOTS.some((r) => r.pc === s.rootPc)) s.rootPc = 0;

@@ -117,6 +117,11 @@ export interface PlayOptions {
   /** arpeggios ring until the same string is played again; scales are played legato */
   ring: boolean;
   onEnd: () => void;
+  /**
+   * Progressions: the notes for repeat `pass` (same length as `slots`), so each
+   * repeat can play another route. Called just before that repeat is scheduled.
+   */
+  passSlots?: (pass: number) => (FretNote | null)[];
 }
 
 const LOOKAHEAD = 0.15; // seconds scheduled ahead
@@ -233,11 +238,16 @@ export class PracticeEngine {
     const ctx = this.ctx;
     const r = this.run;
     if (!ctx || !r) return;
-    const { opts, step } = r;
-    const len = opts.slots.length;
+    const { step } = r;
+    const len = r.opts.slots.length;
     while (r.next < r.total && r.t0 + r.next * step < ctx.currentTime + LOOKAHEAD) {
       const time = r.t0 + r.next * step;
       const inPass = r.next % len;
+      if (inPass === 0 && r.opts.passSlots) {
+        const next = r.opts.passSlots(Math.floor(r.next / len));
+        if (next.length === len) r.opts = { ...r.opts, slots: next };
+      }
+      const opts = r.opts;
       // metronome on every subdivision: bar, beat, in between
       const perBar = BEATS_PER_BAR * opts.subdivision;
       const level = inPass % perBar === 0 ? 0 : inPass % opts.subdivision === 0 ? 1 : 2;
@@ -288,7 +298,7 @@ export class PracticeEngine {
    * Slot that is sounding now (output latency taken into account), or null when
    * stopped. `countIn` is true during the count-in bar.
    */
-  position(): { slot: number; countIn: boolean } | null {
+  position(): { slot: number; countIn: boolean; pass: number } | null {
     const ctx = this.ctx;
     const r = this.run;
     if (!ctx || !r) return null;
@@ -296,10 +306,11 @@ export class PracticeEngine {
     const latency =
       this.latencyOverride ?? (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
     const now = ctx.currentTime - latency;
-    if (now < r.t0) return { slot: -1, countIn: true };
+    if (now < r.t0) return { slot: -1, countIn: true, pass: 0 };
     const k = Math.floor((now - r.t0) / r.step);
     if (k >= r.total) return null;
-    return { slot: k % r.opts.slots.length, countIn: false };
+    const len = r.opts.slots.length;
+    return { slot: k % len, countIn: false, pass: Math.floor(k / len) };
   }
 
   dispose() {

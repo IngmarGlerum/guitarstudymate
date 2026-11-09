@@ -25,8 +25,16 @@ const BAR_PAD = 14;
 const TAB_TOP = STAFF_H + 18;
 const TAB_GAP = 15;
 
+export interface ChordLabel {
+  /** slot where the chord starts */
+  slot: number;
+  text: string;
+}
+
 export interface ScoreLayout {
   slots: (FretNote | null)[];
+  /** progressions: chord names above the staff (V-4) */
+  chords: ChordLabel[];
   subdivision: Subdivision;
   perBar: number;
   bars: number;
@@ -36,7 +44,11 @@ export interface ScoreLayout {
   noteX: (i: number) => number;
 }
 
-export function scoreLayout(slots: (FretNote | null)[], subdivision: Subdivision): ScoreLayout {
+export function scoreLayout(
+  slots: (FretNote | null)[],
+  subdivision: Subdivision,
+  chords: ChordLabel[] = [],
+): ScoreLayout {
   const perBar = BEATS_PER_BAR * subdivision;
   const bars = Math.max(1, Math.ceil(slots.length / perBar));
   // roomy enough for sixteenths with accidentals, wide enough for quarters to breathe
@@ -46,7 +58,7 @@ export function scoreLayout(slots: (FretNote | null)[], subdivision: Subdivision
     const inBar = i % perBar;
     return HEADER_W + bar * barW + BAR_PAD + (inBar / perBar) * (barW - BAR_PAD);
   };
-  return { slots, subdivision, perBar, bars, barW, width: HEADER_W + bars * barW + 24, noteX };
+  return { slots, chords, subdivision, perBar, bars, barW, width: HEADER_W + bars * barW + 24, noteX };
 }
 
 const SHARP_KEYS = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
@@ -91,23 +103,24 @@ export function drawScore(
     stave.setContext(vf).draw();
 
     const slots = layout.slots.slice(b * perBar, (b + 1) * perBar);
-    const notes = slots.map((n) => {
-      const rest = n === null;
-      const note = new StaveNote({
-        keys: rest ? ['b/4'] : [writtenKey(n.midi, opts.flats)],
-        duration: DURATION[subdivision] + (rest ? 'r' : ''),
-        auto_stem: !rest,
-        clef: 'treble',
+    // a beat with nothing in it is written as one quarter rest, not a row of small ones
+    const items: { slot: number; note: StaveNote; whole: boolean }[] = [];
+    for (let beat = 0; beat < BEATS_PER_BAR; beat++) {
+      const inBeat = slots.slice(beat * subdivision, (beat + 1) * subdivision);
+      if (subdivision > 1 && inBeat.length === subdivision && inBeat.every((n) => n === null)) {
+        items.push({ slot: beat * subdivision, note: makeNote(null, 'q', stave, opts.flats), whole: true });
+        continue;
+      }
+      inBeat.forEach((n, k) => {
+        items.push({ slot: beat * subdivision + k, note: makeNote(n, DURATION[subdivision], stave, opts.flats), whole: false });
       });
-      note.setStyle(rest ? muted : ink);
-      note.setLedgerLineStyle(faint);
-      note.setStave(stave);
-      return note;
-    });
+    }
+    const notes = items.map((it) => it.note);
     const tuplets: Tuplet[] = [];
     if (subdivision === 3) {
-      for (let i = 0; i < notes.length; i += 3) {
-        tuplets.push(new Tuplet(notes.slice(i, i + 3), { num_notes: 3, notes_occupied: 2 }));
+      for (let beat = 0; beat < BEATS_PER_BAR; beat++) {
+        const group = items.filter((it) => !it.whole && Math.floor(it.slot / 3) === beat).map((it) => it.note);
+        if (group.length === 3) tuplets.push(new Tuplet(group, { num_notes: 3, notes_occupied: 2 }));
       }
     }
     const voice = new Voice({ num_beats: BEATS_PER_BAR, beat_value: 4 })
@@ -116,8 +129,8 @@ export function drawScore(
     Accidental.applyAccidentals([voice], 'C');
 
     const noteStart = stave.getNoteStartX();
-    notes.forEach((note, i) => {
-      const x = layout.noteX(b * perBar + i);
+    items.forEach(({ slot, note }) => {
+      const x = layout.noteX(b * perBar + slot);
       const tc = new TickContext();
       tc.addTickable(note).preFormat();
       tc.setX(x - noteStart);
@@ -129,6 +142,17 @@ export function drawScore(
     for (const bm of beams) bm.setStyle(ink).setContext(vf).draw();
     for (const t of tuplets) t.setContext(vf).draw();
   }
+
+  // chord names above the staff, and a small mark under every target note
+  ctx.textBaseline = 'alphabetic';
+  for (const c of layout.chords) drawChordLabel(ctx, layout, c, false);
+  layout.slots.forEach((n, i) => {
+    if (n?.role !== 'target') return;
+    ctx.fillStyle = palette.brass;
+    ctx.beginPath();
+    ctx.arc(layout.noteX(i) + NOTE_CENTER, STAFF_H - 8, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+  });
 
   if (!opts.showTab) return;
 
@@ -177,6 +201,14 @@ function drawFret(
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }
+  if (n.role === 'target') {
+    // targets: an outer brass ring, so they stay apart from the red roots (V-3)
+    ctx.beginPath();
+    ctx.arc(cx, cy, 11.5, 0, Math.PI * 2);
+    ctx.strokeStyle = palette.brass;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
   ctx.font = "600 11px 'Instrument Sans Variable', system-ui, sans-serif";
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -198,6 +230,9 @@ export function drawScoreHighlight(
   showTab: boolean,
 ) {
   if (slot < 0 || slot >= layout.slots.length) return;
+  // the sounding chord's name lights up too
+  const current = [...layout.chords].reverse().find((c) => c.slot <= slot);
+  if (current) drawChordLabel(ctx, layout, current, true);
   const x = layout.noteX(slot) + NOTE_CENTER;
   const grad = ctx.createLinearGradient(0, STAVE_Y, 0, STAFF_H);
   grad.addColorStop(0, 'rgba(240,180,90,0)');
@@ -212,4 +247,31 @@ export function drawScoreHighlight(
     drawFret(ctx, layout, layout.slots[slot], slot, true);
     ctx.restore();
   }
+}
+
+function drawChordLabel(ctx: CanvasRenderingContext2D, layout: ScoreLayout, c: ChordLabel, lit: boolean) {
+  const x = layout.noteX(c.slot);
+  ctx.font = "600 14px 'Newsreader Variable', Georgia, serif";
+  ctx.textBaseline = 'alphabetic';
+  if (lit) {
+    const w = ctx.measureText(c.text).width;
+    ctx.fillStyle = 'rgba(240,180,90,0.18)';
+    ctx.fillRect(x - 4, 1, w + 8, 19);
+  }
+  ctx.fillStyle = lit ? palette.honeyLight : palette.parchmentMuted;
+  ctx.fillText(c.text, x, 15);
+}
+
+function makeNote(n: FretNote | null, duration: string, stave: Stave, flats: boolean) {
+  const rest = n === null;
+  const note = new StaveNote({
+    keys: rest ? ['b/4'] : [writtenKey(n.midi, flats)],
+    duration: duration + (rest ? 'r' : ''),
+    auto_stem: !rest,
+    clef: 'treble',
+  });
+  note.setStyle(rest ? muted : ink);
+  note.setLedgerLineStyle(faint);
+  note.setStave(stave);
+  return note;
 }
