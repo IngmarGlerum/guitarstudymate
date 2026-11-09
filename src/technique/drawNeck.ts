@@ -168,3 +168,34 @@ export function drawNeckHighlight(
   drawDot(ctx, layout, note, true, flats);
   ctx.restore();
 }
+
+/**
+ * Progressions: the current chord's scale inside the window as dim dots, its
+ * target with a double ring (V-3), and the sounding note lit.
+ */
+export function drawNeckProgression(
+  ctx: CanvasRenderingContext2D,
+  layout: NeckLayout,
+  box: FretNote[],
+  target: FretNote | null,
+  sounding: FretNote | null,
+  windowLo: number,
+  flats: boolean,
+) {
+  // the window as a soft band behind the dots
+  const x1 = windowLo === 0 ? 0 : layout.fretX(Math.max(0, windowLo - 1));
+  const x2 = layout.fretX(Math.min(layout.frets, windowLo + 4));
+  ctx.fillStyle = 'rgba(240,180,90,0.07)';
+  ctx.fillRect(x1, layout.stringY(5) - 14, x2 - x1, layout.stringY(0) - layout.stringY(5) + 28);
+  for (const n of box) drawDot(ctx, layout, n, false, flats);
+  if (target) {
+    const x = layout.noteX(target.fret);
+    const y = layout.stringY(target.string);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = palette.brass;
+    ctx.beginPath();
+    ctx.arc(x, y, 13.5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if (sounding) drawNeckHighlight(ctx, layout, sounding, flats);
+}

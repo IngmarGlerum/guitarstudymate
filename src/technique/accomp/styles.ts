@@ -129,10 +129,17 @@ const seventh = (c: Chord) => chordType(c.type).intervals[3] ?? 12;
 
 // ---- the styles ----
 
+/** A chord inside one bar: start and length in beats from the bar's start. */
+export interface BarSegment {
+  chord: Chord;
+  start: number;
+  beats: number;
+}
+
 export function generateBar(
   style: StyleId,
-  chord: Chord,
-  next: Chord,
+  segs: BarSegment[],
+  after: Chord,
   bar: number,
   bpm: number,
   state: StyleState,
@@ -145,20 +152,32 @@ export function generateBar(
     const whole = Math.floor(beat);
     return Math.abs(beat - whole - 0.5) < 1e-6 ? whole + swingRatio(bpm) : beat;
   };
-  const bassRoot = chord.bassPc ?? chord.rootPc;
+  const chordAt = (beat: number) => (segs.find((s) => beat >= s.start && beat < s.start + s.beats) ?? segs[segs.length - 1]).chord;
+  const nextOf = (i: number) => segs[i + 1]?.chord ?? after;
+  const bassRootOf = (c: Chord) => c.bassPc ?? c.rootPc;
 
   if (style === 'swing') {
-    // walking bass: root on 1, chord tones on 2 and 3, a half step into the next root on 4
-    const b1 = nearest(bassRoot, state.bass, BASS_LO, BASS_HI);
-    const target = nearest(next.bassPc ?? next.rootPc, b1, BASS_LO + 1, BASS_HI - 1);
-    const b4 = target + (r() < 0.5 ? -1 : 1);
-    const toward = (p: number, from: number) => nearest(p, from + (b4 - from) / 2, BASS_LO, BASS_HI);
-    const b2 = toward(pc(chord, r() < 0.5 ? third(chord) : fifth(chord)), b1);
-    const b3 = toward(pc(chord, r() < 0.6 ? fifth(chord) : seventh(chord)), b2);
-    [b1, b2, b3, b4].forEach((m, i) => ev.push({ part: 'bass', beat: i, dur: 0.9, midi: m, vel: i === 0 ? 0.85 : 0.7 }));
-    state.bass = b4;
+    // walking bass: root on the chord's first beat, chord tones in between,
+    // a half step into the next chord's root on its last beat
+    segs.forEach((seg, i) => {
+      const chord = seg.chord;
+      const next = nextOf(i);
+      const n = Math.max(1, Math.round(seg.beats));
+      const b1 = nearest(bassRootOf(chord), state.bass, BASS_LO, BASS_HI);
+      const target = nearest(bassRootOf(next), b1, BASS_LO + 1, BASS_HI - 1);
+      const last = target + (r() < 0.5 ? -1 : 1);
+      const line = [b1];
+      for (let k = 1; k < n - 1; k++) {
+        const toward = line[line.length - 1] + (last - line[line.length - 1]) / (n - k);
+        const tone = k % 2 === 1 ? (r() < 0.5 ? third(chord) : fifth(chord)) : r() < 0.6 ? fifth(chord) : seventh(chord);
+        line.push(nearest(pc(chord, tone), toward, BASS_LO, BASS_HI));
+      }
+      if (n > 1) line.push(last);
+      line.forEach((m, k) => ev.push({ part: 'bass', beat: seg.start + k, dur: 0.9, midi: m, vel: k === 0 ? 0.85 : 0.7 }));
+      state.bass = line[line.length - 1];
+    });
 
-    // comping: a few short stabs; a stab on the last off-beat anticipates the next chord
+    // comping: a few short stabs; a stab on the bar's last off-beat anticipates what comes next
     const patterns = [
       [[0, 0.7]],
       [[1.5, 0.4], [3.5, 0.5]],
@@ -167,10 +186,11 @@ export function generateBar(
       [[2.5, 0.5]],
       [[0.5, 0.4], [2, 0.6]],
     ];
-    const pat = patterns[Math.floor(r() * patterns.length)];
+    // with a chord change mid-bar, make sure both chords are heard
+    const pat = segs.length > 1 ? segs.map((sg) => [sg.start, 0.6]) : patterns[Math.floor(r() * patterns.length)];
     for (const [beat, dur] of pat) {
       const anticipate = beat >= 3.5;
-      const voicing = placeVoicing(anticipate ? next : chord, state.voicing);
+      const voicing = placeVoicing(anticipate ? after : chordAt(beat), state.voicing);
       ev.push({ part: 'piano', beat: sw(beat), dur, midis: voicing, vel: 0.45 + r() * 0.2 });
       state.voicing = voicing;
     }
@@ -191,21 +211,27 @@ export function generateBar(
   }
 
   if (style === 'bossa') {
-    // root on 1, fifth on the "and" of 2 and on 3, root again on the "and" of 4
-    const root = nearest(bassRoot, state.bass, BASS_LO, BASS_HI - 7);
-    const five = root + fifth(chord) - (fifth(chord) > 7 ? 0 : 0);
-    const fiveLow = five - 12 >= BASS_LO ? five - 12 : five;
-    ev.push(
-      { part: 'bass', beat: 0, dur: 1.4, midi: root, vel: 0.85 },
-      { part: 'bass', beat: 1.5, dur: 0.45, midi: fiveLow, vel: 0.7 },
-      { part: 'bass', beat: 2, dur: 1.4, midi: fiveLow, vel: 0.75 },
-      { part: 'bass', beat: 3.5, dur: 0.45, midi: root, vel: 0.65 },
-    );
-    state.bass = root;
+    // per chord: root, fifth on the "and" of its 2nd beat, fifth again, root on the last "and"
+    segs.forEach((seg) => {
+      const chord = seg.chord;
+      const root = nearest(bassRootOf(chord), state.bass, BASS_LO, BASS_HI - 7);
+      const five = root + fifth(chord);
+      const fiveLow = five - 12 >= BASS_LO ? five - 12 : five;
+      const hits: [number, number, number, number][] = [
+        [0, 1.4, root, 0.85],
+        [1.5, 0.45, fiveLow, 0.7],
+        [2, 1.4, fiveLow, 0.75],
+        [3.5, 0.45, root, 0.65],
+      ];
+      for (const [b, dur, midi, vel] of hits) {
+        if (b < seg.beats) ev.push({ part: 'bass', beat: seg.start + b, dur: Math.min(dur, seg.beats - b), midi, vel });
+      }
+      state.bass = root;
+    });
     // two-bar syncopated comping
     const pat = bar % 2 === 0 ? [[0, 0.45], [1.5, 0.45], [3, 0.45]] : [[0.5, 0.45], [2, 0.45], [3.5, 0.45]];
     for (const [beat, dur] of pat) {
-      const voicing = placeVoicing(beat >= 3.5 ? next : chord, state.voicing);
+      const voicing = placeVoicing(beat >= 3.5 ? after : chordAt(beat), state.voicing);
       ev.push({ part: 'piano', beat, dur, midis: voicing, vel: 0.45 });
       state.voicing = voicing;
     }
@@ -222,15 +248,18 @@ export function generateBar(
   }
 
   if (style === 'pop') {
-    const root = nearest(bassRoot, state.bass, BASS_LO, BASS_HI);
     for (let i = 0; i < 8; i++) {
+      const chord = chordAt(i / 2);
+      const root = nearest(bassRootOf(chord), state.bass, BASS_LO, BASS_HI);
       const octave = i === 5 && r() < 0.5 ? 12 : 0;
       ev.push({ part: 'bass', beat: i / 2, dur: 0.45, midi: Math.min(BASS_HI + 7, root + octave), vel: i % 2 ? 0.6 : 0.8 });
+      state.bass = root;
     }
-    state.bass = root;
-    const voicing = popVoicing(chord, state.voicing);
-    ev.push({ part: 'piano', beat: 0, dur: 1.9, midis: voicing, vel: 0.55 }, { part: 'piano', beat: 2, dur: 1.9, midis: voicing, vel: 0.5 });
-    state.voicing = voicing;
+    for (const beat of [0, 2]) {
+      const voicing = popVoicing(chordAt(beat), state.voicing);
+      ev.push({ part: 'piano', beat, dur: 1.9, midis: voicing, vel: beat ? 0.5 : 0.55 });
+      state.voicing = voicing;
+    }
     for (let i = 0; i < 8; i++) ev.push({ part: 'drums', beat: i / 2, sound: 'hatClosed', vel: i % 2 ? 0.35 : 0.55 });
     ev.push(
       { part: 'drums', beat: 0, sound: 'kick', vel: 0.85 },

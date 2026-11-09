@@ -9,6 +9,8 @@ export interface FretNote {
   degree: number;
   /** the index finger slides into this note (four notes per string) */
   slide?: boolean;
+  /** in progressions: a target note (chord tone on the chord's first beat) */
+  role?: 'target' | 'approach';
 }
 
 export interface Fingering {

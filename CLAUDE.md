@@ -63,7 +63,7 @@ Oefenmachine" (claude.ai/artifact/UwC4ARkj4LRDs7kxjiMw9Q):
 
 Uitbreiding Techniek (requirementsdocument "Guitar Study Mate – Requirements Techniek-uitbreiding",
 9 nov 2026). Besloten in overleg met de eigenaar, nog niet gebouwd tenzij hieronder "klaar":
-- Fases: 0 timing (klaar: kalibratie), 1 bibliotheek + begeleiding (klaar), 2 progressies + routes + doelnoten,
+- Fases: 0 timing (klaar: kalibratie), 1 bibliotheek + begeleiding (klaar), 2 progressies + routes + doelnoten (klaar),
   3 omspelingen + vulling, 4 iReal-import, 5 leerlijnen.
 - Begeleiding zoals iReal Pro: General MIDI-samples (zelf gehost, licentie per set controleren), eigen
   stijlgeneratoren (eerst swing, bossa, pop: walking bass, comping met stemvoering, drums), per instrument
@@ -165,6 +165,14 @@ Uitbreiding Techniek (requirementsdocument "Guitar Study Mate – Requirements T
   naamsvermelding in de app en LICENSE.txt); drums en drone gesynthetiseerd. Balans gemeten op gerenderde
   maten (bas ≈ −23 dB, piano en drums ≈ −30 dB RMS) via `PART_GAIN`. `gleitz.github.io` is vanuit de
   bouwomgeving geblokkeerd; de samples kwamen via raw.githubusercontent.com.
+- Progressies (fase 2): `technique/progressions.ts` (formaat, parser met `|` en `%`, ingebouwde vormen),
+  `harmony.ts` (toonsoort, cadensen als eenheden, routes in drie lagen met waarschuwingen; minor ii–V met m7
+  krijgt dorisch/aeolisch; een los akkoord na een cadens erft diens toonsoort), `fretWindow.ts` (box-noten
+  in een venster van 5 frets, doelnoot met stemvoering, positie volgen), `progressionExercise.ts` (route per
+  herhaling, deterministisch zodat scherm en geluid gelijk lopen), `useProgression.ts`. De engine vraagt per
+  herhaling `passSlots(p)` op; de UI wisselt `passIndex` op de grens van een herhaling (één render per
+  herhaling). De begeleiding krijgt een tijdlijn `{chord, beats}[]` en speelt meerdere akkoorden per maat.
+  Een tel zonder noten wordt als één kwartrust geschreven.
 - De notenbalk in Techniek is een eigen tekening (`technique/drawScore.ts`), niet de Meespelen-tijdas:
   de speler is nog niet echt gedeeld tussen de modi.
 

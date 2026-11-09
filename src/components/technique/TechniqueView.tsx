@@ -4,7 +4,7 @@ import { LuBookmark, LuLibrary, LuPlay, LuSquare } from 'react-icons/lu';
 import { overlayContext, useCanvas } from '../../hooks/useCanvas';
 import { useFrame } from '../../hooks/useFrame';
 import { useStoredState } from '../../hooks/useStoredState';
-import { drawNeck, drawNeckHighlight, NECK_H, neckLayout } from '../../technique/drawNeck';
+import { drawNeck, drawNeckHighlight, drawNeckProgression, NECK_H, neckLayout } from '../../technique/drawNeck';
 import {
   drawScore,
   drawScoreHighlight,
@@ -25,7 +25,11 @@ import { PatternDialog } from './PatternDialog';
 import { PresetsDialog } from './PresetsDialog';
 import { LibraryDialog } from './LibraryDialog';
 import { AccompanimentPanel, type AccompPrefs } from './AccompanimentPanel';
-import { chordName, parseChordLine, type Chord } from '../../technique/chords';
+import { chordName, type Chord } from '../../technique/chords';
+import { keyName } from '../../technique/harmony';
+import { parseProgression, segmentsOf, BUILTIN_PROGRESSIONS } from '../../technique/progressions';
+import { useProgression } from '../../technique/useProgression';
+import { RoutesPanel } from './RoutesPanel';
 import { libraryEntry } from '../../technique/library';
 import type { AccompConfig } from '../../technique/accomp/accompaniment';
 import type { LatencyState } from '../../audio/latency';
@@ -101,48 +105,78 @@ export function TechniqueView({
     e.setClickVolume(audio.clickVolume);
   }, [audio]);
 
-  const flats = ROOTS.find((r) => r.pc === settings.rootPc)?.flats ?? false;
+  const isProg = settings.kind === 'progression';
+  const prog = useProgression(settings);
+  const { passFor } = prog;
+  // which repeat is on screen; follows the engine at each repeat boundary
+  const [passIndex, setPassIndex] = useState(0);
+  const progPass = useMemo(() => (isProg ? passFor(passIndex) : null), [isProg, passFor, passIndex]);
+  const keyPc = isProg ? prog.plan.key.pc : settings.rootPc;
+  const flats = ROOTS.find((r) => r.pc === keyPc)?.flats ?? false;
 
   // the combo: chords from the scale's home chord, or typed by the user
   const scaleChord = useMemo<Chord>(() => {
     const entry = libraryEntry(settings.kind === 'arpeggio' ? settings.arpeggioId : settings.scaleId);
     return { rootPc: settings.rootPc, type: entry?.homeChord ?? 'maj7' };
   }, [settings.kind, settings.arpeggioId, settings.scaleId, settings.rootPc]);
-  const custom = useMemo(() => parseChordLine(accomp.customLine), [accomp.customLine]);
+  const custom = useMemo(() => {
+    const p = parseProgression(accomp.customLine);
+    return { segs: segmentsOf(p.bars, p.barTexts), unknown: p.unknown };
+  }, [accomp.customLine]);
+  const progSegs = prog.segs;
   const accompConfig = useMemo<AccompConfig>(
     () => ({
       on: accomp.on,
       style: accomp.style,
-      chords: accomp.source === 'custom' && custom.chords.length ? custom.chords : [scaleChord],
+      // a progression plays its own chords; otherwise the scale's chord or typed chords
+      timeline: isProg
+        ? progSegs.map((sg) => ({ chord: sg.chord, beats: sg.beats }))
+        : accomp.source === 'custom' && custom.segs.length
+          ? custom.segs.map((sg) => ({ chord: sg.chord, beats: sg.beats }))
+          : [{ chord: scaleChord, beats: 4 }],
       pianoSound: accomp.pianoSound,
-      droneRoot: 48 + settings.rootPc,
+      droneRoot: 48 + keyPc,
       parts: accomp.parts,
     }),
-    [accomp, custom, scaleChord, settings.rootPc],
+    [accomp, custom, scaleChord, keyPc, isProg, progSegs],
   );
   useEffect(() => {
     engine().setAccompaniment(accompConfig);
   }, [accompConfig]);
-  const fingering = useMemo(() => fingeringFor(settings), [settings]);
-  const slots = useMemo(() => layoutPass(settings), [settings]);
-  const layout = useMemo(() => scoreLayout(slots, settings.subdivision), [slots, settings.subdivision]);
+  const fingering = useMemo(() => (isProg ? null : fingeringFor(settings)), [settings, isProg]);
+  const slots = useMemo(() => (progPass ? progPass.slots : layoutPass(settings)), [progPass, settings]);
+  const chordLabels = useMemo(
+    () =>
+      isProg
+        ? progSegs.map((sg) => ({ slot: Math.round(sg.start * settings.subdivision), text: chordName(sg.chord, flats) }))
+        : [],
+    [isProg, progSegs, settings.subdivision, flats],
+  );
+  const layout = useMemo(
+    () => scoreLayout(slots, settings.subdivision, chordLabels),
+    [slots, settings.subdivision, chordLabels],
+  );
   const showTab = view === 'tab';
 
   // ---- playback ----
   const startPlayback = useCallback(() => {
     if (slots.every((s) => s === null)) return;
+    const first = isProg ? passFor(0).slots : slots;
+    setPassIndex(0);
     void engine().start({
-      slots,
+      slots: first,
       subdivision: settings.subdivision,
       bpm: settings.bpm,
       repeats: settings.repeats,
       countIn: audio.countIn,
-      ring: settings.kind === 'arpeggio',
+      // arpeggios and lone target notes ring; scale runs are legato
+      ring: settings.kind === 'arpeggio' || (isProg && settings.content === 'targets'),
+      passSlots: isProg ? (p) => passFor(p).slots : undefined,
       onEnd: () => setPlaying(false),
     });
     setPlaying(true);
     setHasPlayed(true);
-  }, [slots, settings.subdivision, settings.bpm, settings.repeats, settings.kind, audio.countIn]);
+  }, [slots, settings.subdivision, settings.bpm, settings.repeats, settings.kind, settings.content, audio.countIn, isProg, passFor]);
 
   const stopPlayback = useCallback(() => {
     engineRef.current?.stop();
@@ -150,7 +184,7 @@ export function TechniqueView({
   }, []);
 
   // a changed exercise restarts playback, so what you hear always matches the screen
-  const restartKey = `${JSON.stringify(slots.map((s) => s?.midi ?? -1))}|${settings.bpm}|${settings.subdivision}|${settings.repeats}|${settings.kind}`;
+  const restartKey = `${JSON.stringify((isProg ? passFor(0).slots : slots).map((s) => s?.midi ?? -1))}|${settings.bpm}|${settings.subdivision}|${settings.repeats}|${settings.kind}|${settings.content}|${settings.routeLayer}|${settings.routeOrder}|${JSON.stringify(settings.routeOff)}`;
   const lastKey = useRef(restartKey);
   useEffect(() => {
     if (lastKey.current === restartKey) return;
@@ -205,10 +239,10 @@ export function TechniqueView({
     setNeckW(el.clientWidth);
     return () => ro.disconnect();
   }, [view]);
-  const maxFret = fingering ? Math.max(...fingering.notes.map((n) => n.fret)) : 12;
+  const maxFret = isProg ? Math.max(12, ...(progPass?.windows ?? [settings.windowLo]).map((w) => w + 6)) : fingering ? Math.max(...fingering.notes.map((n) => n.fret)) : 12;
   const neck = useMemo(() => neckLayout(Math.max(neckW, 600), maxFret), [neckW, maxFret]);
   // on narrow screens the neck scrolls: bring the fingering into view
-  const minFret = fingering ? Math.min(...fingering.notes.map((n) => n.fret)) : 0;
+  const minFret = isProg ? Math.min(...(progPass?.windows ?? [settings.windowLo])) : fingering ? Math.min(...fingering.notes.map((n) => n.fret)) : 0;
   useEffect(() => {
     const el = neckBox.current;
     if (!el || el.scrollWidth <= el.clientWidth) return;
@@ -243,11 +277,11 @@ export function TechniqueView({
     preview.current = { slot: best, note, until: performance.now() + PREVIEW_MS };
   };
   const onNeckClick = (e: MouseEvent<HTMLCanvasElement>) => {
-    if (!fingering) return;
+    const notes = progPass ? progPass.boxes[shownSeg.current] ?? [] : (fingering?.notes ?? []);
     const r = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
-    const hit = fingering.notes.find(
+    const hit = notes.find(
       (n) => Math.hypot(neck.noteX(n.fret) - x, neck.stringY(n.string) - y) <= 13,
     );
     if (!hit) return;
@@ -259,13 +293,20 @@ export function TechniqueView({
   // ---- sync: redraw the highlights only when the sounding slot changes ----
   const statusRef = useRef<HTMLSpanElement>(null);
   const shown = useRef({ slot: -2, key: '', previewNote: null as FretNote | null });
-  const frameState = useRef({ layout, neck, showTab, flats, view });
+  const shownSeg = useRef(0);
+  const passRef = useRef(0);
+  const frameState = useRef({ layout, neck, showTab, flats, view, progPass });
   useEffect(() => {
-    frameState.current = { layout, neck, showTab, flats, view };
+    frameState.current = { layout, neck, showTab, flats, view, progPass };
     shown.current.key = ''; // force a redraw after a layout change
   });
   useFrame(() => {
     const pos = engineRef.current?.position() ?? null;
+    // a new repeat may play another route: show it (one render per repeat, not per frame)
+    if (pos && !pos.countIn && pos.pass !== passRef.current) {
+      passRef.current = pos.pass;
+      setPassIndex(pos.pass);
+    }
     // while stopped, a clicked note lights up for a moment
     const pv = !pos && preview.current && performance.now() < preview.current.until ? preview.current : null;
     const slot = pos ? pos.slot : pv ? pv.slot : -2;
@@ -280,7 +321,14 @@ export function TechniqueView({
     const sctx = overlayContext(scoreOverlayRef.current);
     if (sctx) drawScoreHighlight(sctx, st.layout, slot, st.showTab);
     const nctx = st.view === 'neck' ? overlayContext(neckOverlayRef.current) : null;
-    if (nctx) drawNeckHighlight(nctx, st.neck, neckNote, st.flats);
+    if (nctx && st.progPass) {
+      // progressions: the sounding chord's scale in its window, its target, the note
+      const pp = st.progPass;
+      const seg = slot >= 0 ? (pp.segOfSlot[slot] ?? 0) : shownSeg.current;
+      shownSeg.current = seg;
+      const target = pp.slots.find((n, i) => pp.segOfSlot[i] === seg && n?.role === 'target') ?? null;
+      drawNeckProgression(nctx, st.neck, pp.boxes[seg] ?? [], target, neckNote, pp.windows[seg] ?? 0, st.flats);
+    } else if (nctx) drawNeckHighlight(nctx, st.neck, neckNote, st.flats);
     // keep the current note in view
     const scroller = scoreScroller.current;
     if (scroller && slot >= 0 && !pv) {
@@ -292,8 +340,11 @@ export function TechniqueView({
   });
 
   const formula = formulaFor(settings);
-  const title =
-    settings.kind === 'arpeggio'
+  const progLabel =
+    settings.progressionId === 'custom' ? 'Eigen schema' : BUILTIN_PROGRESSIONS.find((p) => p.id === settings.progressionId)?.label;
+  const title = isProg
+    ? `${progLabel} · ${keyName(prog.plan.key, flats)}`
+    : settings.kind === 'arpeggio'
       ? `${pcName(settings.rootPc, flats)} ${formula.label.toLowerCase()} arpeggio`
       : `${pcName(settings.rootPc, flats)} ${formula.label.toLowerCase()}${settings.kind === 'pattern' ? ` · patroon ${settings.pattern.join(' ')}` : ''}`;
   const empty = slots.every((s) => s === null);
@@ -327,8 +378,13 @@ export function TechniqueView({
           perStringOptions={perStringOptions}
           positionOptions={positionOptions}
           onEditPattern={() => setPatternOpen(true)}
+          prog={prog}
         />
       </Box>
+
+      {isProg && progPass && (
+        <RoutesPanel plan={prog.plan} settings={settings} update={update} flats={flats} current={progPass.routeIds} barOffset={prog.from} />
+      )}
 
       {/* notenbalk (and tab), always on top */}
       <Box ref={scoreScroller} overflowX="auto" overflowY="hidden" position="relative" bg="#170f0a">
@@ -404,7 +460,8 @@ export function TechniqueView({
         prefs={accomp}
         onChange={setAccomp}
         scaleChordName={chordName(scaleChord, flats)}
-        unknown={accomp.source === 'custom' ? custom.unknown : []}
+        progression={isProg}
+        unknown={accomp.source === 'custom' && !isProg ? custom.unknown : []}
       />
 
       {/* transport */}

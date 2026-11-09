@@ -1,7 +1,7 @@
 import { arpeggioFingering, scaleFingering, type FretNote } from './fingering';
 import { ARPEGGIOS, SCALES, type Formula } from './theory';
 
-export type ExerciseKind = 'scale' | 'arpeggio' | 'pattern';
+export type ExerciseKind = 'scale' | 'arpeggio' | 'pattern' | 'progression';
 export type Direction = 'up' | 'down' | 'updown';
 /** notes per beat: quarters, eighths, triplets, sixteenths */
 export type Subdivision = 1 | 2 | 3 | 4;
@@ -28,6 +28,28 @@ export interface ExerciseSettings {
   repeats: number;
   /** custom pattern as scale degrees, e.g. [1, 2, 3, 7] */
   pattern: number[];
+
+  // ---- progressions (phase 2) ----
+  /** a built-in form id, or 'custom' for the typed text */
+  progressionId: string;
+  progressionText: string;
+  /** 'auto' or "<pc>:maj" / "<pc>:min" */
+  keyChoice: string;
+  /** bars to loop, 1-based and inclusive; 0 = to the end (P-8) */
+  barFrom: number;
+  barTo: number;
+  /** only the target notes, or a scale run from each target */
+  content: 'targets' | 'scale';
+  targetMode: 'guide' | 'all';
+  /** lowest fret of the window */
+  windowLo: number;
+  /** move the window with the hand between chords (R-8) */
+  followPosition: boolean;
+  /** route switch: up to which layer */
+  routeLayer: 'inKey' | 'common' | 'adventurous';
+  routeOrder: 'sequence' | 'random';
+  /** routes unticked per unit (key: see unitKey) */
+  routeOff: Record<string, string[]>;
 }
 
 export const DEFAULT_SETTINGS: ExerciseSettings = {
@@ -42,6 +64,18 @@ export const DEFAULT_SETTINGS: ExerciseSettings = {
   direction: 'updown',
   repeats: 0,
   pattern: [1, 2, 3, 5],
+  progressionId: 'ii-v-i-major',
+  progressionText: 'Dm7 | G7 | Cmaj7 | Cmaj7',
+  keyChoice: 'auto',
+  barFrom: 1,
+  barTo: 0,
+  content: 'targets',
+  targetMode: 'guide',
+  windowLo: 5,
+  followPosition: true,
+  routeLayer: 'common',
+  routeOrder: 'sequence',
+  routeOff: {},
 };
 
 export const BEATS_PER_BAR = 4;

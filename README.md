@@ -51,6 +51,19 @@ stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespel
   plus een drone op de grondtoon. Per instrument aan/uit en volume. De akkoorden komen bij de ladder
   (dorisch op D geeft Dm7) of je typt ze zelf, één per maat (Dm7 | G7alt | Cmaj7). Bas en piano zijn
   samples uit de FluidR3_GM-soundfont (CC BY 3.0); drums en drone worden in de browser gemaakt.
+- **Progressie** (type oefening): oefen over een akkoordschema. Kies een ingebouwde vorm (ii–V–I majeur en
+  mineur, door toonsoorten, turnaround, jazzblues, kwintencirkel, rhythm changes, ii–V's in grote tertsen)
+  of typ een eigen schema: maten met `|`, akkoorden in één maat delen de tellen, `%` herhaalt de vorige
+  maat. De toonsoort wordt bepaald (of kies hem zelf); een ii–V(–I) geldt als eigen mini-toonsoort.
+  - **Routes**: per cadens of los akkoord een ladder per akkoord, in drie lagen (binnen toonsoort, gangbare
+    kleuren, avontuurlijk) met een schakelaar en vinkjes. Ladders op een andere grondtoon (bijv.
+    B♭-mineurpentatoniek over G7) staan erbij met uitleg; afwijkende keuzes krijgen een waarschuwing. Per
+    herhaling klinkt de volgende route uit de aangevinkte, of een willekeurige.
+  - **Doelnoten**: terts en septiem met stemvoering (de dichtstbijzijnde bij de vorige noot) of alle
+    akkoordtonen, op de eerste tel van elk akkoord. Inhoud: alleen doelnoten, of de ladder vanaf de doelnoot.
+  - **Positie**: een fretvenster van vijf frets; "Positie volgen" schuift het per akkoord mee met de hand.
+  - Akkoordnamen boven de balk (het klinkende licht op), doelnoten met een stip, in de tab met een messing
+    ring, op de hals met een dubbele ring. Een selectie van maten om in een lus te oefenen.
 - **Presets**: sla de huidige oefening onder een naam op en laad hem later terug. Presets staan alleen in
   deze browser (localStorage, JSON, geen account); exporteer en importeer ze als bestand als vangnet.
 

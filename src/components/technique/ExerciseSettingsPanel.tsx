@@ -1,74 +1,14 @@
-import { Button, Flex, NativeSelect, NumberInput, Text } from '@chakra-ui/react';
-import { useState, type ReactNode } from 'react';
+import { Button, Flex, NumberInput } from '@chakra-ui/react';
+import { useState } from 'react';
 import { LuPencil } from 'react-icons/lu';
 import type { PositionOption } from '../../technique/fingering';
 import { SUBDIVISIONS, type ExerciseSettings } from '../../technique/exercise';
 import { BPM_MAX, BPM_MIN } from '../../technique/settings';
 import { ARPEGGIOS, pcName, ROOTS, SCALES, STRING_NAMES } from '../../technique/theory';
+import type { ProgressionState } from '../../technique/useProgression';
+import { ProgressionFields } from './ProgressionFields';
+import { Field, Select } from './fields';
 import { FAMILY_LABEL, libraryEntry } from '../../technique/library';
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Flex direction="column" gap="1" minW="0">
-      <Text fontSize="xs" color="fg.muted">
-        {label}
-      </Text>
-      {children}
-    </Flex>
-  );
-}
-
-function Select({
-  label,
-  value,
-  onChange,
-  options,
-  w,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string; group?: string }[];
-  w?: string;
-}) {
-  // consecutive options with the same group go into one <optgroup>
-  const groups: { group?: string; items: typeof options }[] = [];
-  for (const o of options) {
-    const last = groups[groups.length - 1];
-    if (last && last.group === o.group) last.items.push(o);
-    else groups.push({ group: o.group, items: [o] });
-  }
-  return (
-    <Field label={label}>
-      <NativeSelect.Root size="sm" w={w}>
-        <NativeSelect.Field
-          aria-label={label}
-          value={value}
-          onChange={(e) => onChange(e.currentTarget.value)}
-        >
-          {groups.map((g, i) =>
-            g.group ? (
-              <optgroup key={g.group} label={g.group}>
-                {g.items.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </optgroup>
-            ) : (
-              g.items.map((o) => (
-                <option key={`${i}-${o.value}`} value={o.value}>
-                  {o.label}
-                </option>
-              ))
-            ),
-          )}
-        </NativeSelect.Field>
-        <NativeSelect.Indicator />
-      </NativeSelect.Root>
-    </Field>
-  );
-}
 
 const REPEAT_OPTIONS = [
   { value: '0', label: 'Eindeloos' },
@@ -81,6 +21,7 @@ interface Props {
   perStringOptions: number[];
   positionOptions: PositionOption[];
   onEditPattern: () => void;
+  prog?: ProgressionState;
 }
 
 /** The exercise's dimensions, in the order of the requirements. */
@@ -90,9 +31,11 @@ export function ExerciseSettingsPanel({
   perStringOptions,
   positionOptions,
   onEditPattern,
+  prog,
 }: Props) {
   const flats = ROOTS.find((r) => r.pc === settings.rootPc)?.flats ?? false;
   const arpeggio = settings.kind === 'arpeggio';
+  const isProg = settings.kind === 'progression' && !!prog;
 
   // local text so typing "8" on the way to "80" isn't clamped
   const [bpmText, setBpmText] = useState(String(settings.bpm));
@@ -115,6 +58,7 @@ export function ExerciseSettingsPanel({
           { value: 'scale', label: 'Toonladder' },
           { value: 'arpeggio', label: 'Arpeggio' },
           { value: 'pattern', label: 'Custom pattern' },
+          { value: 'progression', label: 'Progressie' },
         ]}
       />
       {settings.kind === 'pattern' && (
@@ -124,6 +68,10 @@ export function ExerciseSettingsPanel({
           </Button>
         </Field>
       )}
+      {isProg ? (
+        <ProgressionFields settings={settings} update={update} prog={prog!} />
+      ) : (
+        <>
       {arpeggio ? (
         <Select
           label="Akkoord"
@@ -174,6 +122,8 @@ export function ExerciseSettingsPanel({
           w="132px"
         />
       )}
+        </>
+      )}
       <Select
         label="Onderverdeling"
         value={String(settings.subdivision)}
@@ -199,6 +149,7 @@ export function ExerciseSettingsPanel({
           <NumberInput.Input aria-label="Tempo in tellen per minuut" />
         </NumberInput.Root>
       </Field>
+      {(!isProg || settings.content === 'scale') && (
       <Select
         label="Richting"
         value={settings.direction}
@@ -209,6 +160,7 @@ export function ExerciseSettingsPanel({
           { value: 'updown', label: 'Omhoog en omlaag' },
         ]}
       />
+      )}
       <Select
         label="Herhalingen"
         value={String(settings.repeats)}
