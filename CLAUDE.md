@@ -61,6 +61,29 @@ Oefenmachine" (claude.ai/artifact/UwC4ARkj4LRDs7kxjiMw9Q):
   triolen, zestienden; vast tempo; positie als "nummer · vanaf noot (snaar, fret)"; patroon 1–15, maximaal
   16 getallen, herhalingen toegestaan; een patroon wordt mee opgeslagen in de preset.
 
+Uitbreiding Techniek (requirementsdocument "Guitar Study Mate – Requirements Techniek-uitbreiding",
+9 nov 2026). Besloten in overleg met de eigenaar, nog niet gebouwd tenzij hieronder "klaar":
+- Fases: 0 timing (klaar: kalibratie), 1 bibliotheek + begeleiding, 2 progressies + routes + doelnoten,
+  3 omspelingen + vulling, 4 iReal-import, 5 leerlijnen.
+- Begeleiding zoals iReal Pro: General MIDI-samples (zelf gehost, licentie per set controleren), eigen
+  stijlgeneratoren (eerst swing, bossa, pop: walking bass, comping met stemvoering, drums), per instrument
+  aan/uit en volume, één klok met de oefening. Ook een drone voor de modale leerlijn.
+- Positie bij progressies: een fretvenster; elk akkoord zoekt de noten van zijn ladder binnen dat venster
+  (lost hulpnoten V-1 en positie volgen V-2/R-8 op). Ander positietype dan de huidige hele loop.
+- Routes: vinkjes per cadens (ii–V, ii–V–I) als eenheid, per akkoord alleen buiten een cadens.
+- Routekeuze = ladder + verschuiving t.o.v. de akkoordgrondtoon (bijv. Fm-pentatoniek op E7alt), zichtbaar
+  en begrijpelijk in beeld.
+- Bebop: metadata + controle dat akkoordtonen op de tel vallen, afhankelijk van het akkoord en de startplek.
+- Diatonische omspelingen volgen de ladder die op dat moment in de tijd geldt.
+- Omspelingen: instap = alleen de omspelingsnoten, doelnoot op de eerste tel waarop het doelakkoord klinkt
+  (ook halverwege een maat), de rest rust. Gevorderd (later in de leerlijn): ruimte vullen met de geldende
+  ladder of arpeggio, lineair of als patroon. Past een omspeling niet in het harmonisch ritme: venster
+  "Maak je oefening passend" met "Make it fit!" (sneller: zestienden of triolen) of "Make it shorter"
+  (noten het verst van het doel vallen weg). Keuze wordt onthouden in oefening en preset.
+- iReal: ireal-reader (pianosnake, MIT, ~12 kB, geen afhankelijkheden, laatste release april 2023) als
+  basis, code overnemen in de repo. Toonsoort, bpm en stijl zitten in de songdata. Let op: per maat alleen
+  akkoordnamen, geen tellen per akkoord; iReal-akkoordsymbolen zelf omzetten.
+
 ## Architectuurregels
 
 - **Gedeelde tijdas**: x = tijd × pixels per seconde. Alle lanes staan in dezelfde horizontaal
@@ -112,6 +135,13 @@ Oefenmachine" (claude.ai/artifact/UwC4ARkj4LRDs7kxjiMw9Q):
   na het invullen van een tempo minstens 26 px per zestiende. Alleen inzoomen, nooit uitzoomen.
 - "Terug naar startpositie bij stoppen" (`lib/appSettings.ts`, `gsm.settings`) zit in
   `useAudioTransport.pause`; een klik tijdens het afspelen wordt de nieuwe startpositie.
+- Timing-kalibratie (`audio/latency.ts`, `components/LatencyDialog.tsx`, `gsm.latency`): meetikken op
+  16 klikken na 4 voortellen; tik-tijd = `ctx.currentTime + (event.timeStamp − performance.now())/1000`,
+  vertraging = mediaan(tik − geplande klik). Getest met nagebootste tikken: 0/120/250 ms gaf 12/135/266 ms
+  (headless voegt ~12 ms toe), spreiding ±2 ms. `PracticeEngine.setLatency` gebruikt de gemeten waarde in
+  plaats van `outputLatency + baseLatency`. Meespelen (audio-element) gebruikt de kalibratie nog niet.
+- Menu-items die een venster openen krijgen `closeOnSelect`; het menu zelf staat op `closeOnSelect={false}`
+  voor de vinkjes, en bleef anders open achter het venster.
 - "Tel 1 hier" schuift de maatstrepen; de noten blijven op hun tijd (gedeelde tijdas). Binnen 80 ms van een
   aanslag springt tel 1 op die aanslag.
 - `PracticeEngine` plant noten en klikken 150 ms vooruit op `AudioContext.currentTime` (timer 25 ms,

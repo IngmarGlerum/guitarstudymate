@@ -6,9 +6,14 @@ import type { AppSettings } from '../lib/appSettings';
 export function SettingsMenu({
   settings,
   onChange,
+  latencyMs,
+  onCalibrate,
 }: {
   settings: AppSettings;
   onChange: (next: AppSettings) => void;
+  /** measured output latency, or null when the browser's estimate is used */
+  latencyMs: number | null;
+  onCalibrate: () => void;
 }) {
   return (
     <Menu.Root closeOnSelect={false} positioning={{ placement: 'bottom-end' }}>
@@ -33,6 +38,18 @@ export function SettingsMenu({
                 Terug naar startpositie bij stoppen
                 <Menu.ItemIndicator />
               </Menu.CheckboxItem>
+            </Menu.ItemGroup>
+            <Menu.Separator />
+            <Menu.ItemGroup>
+              <Menu.ItemGroupLabel fontSize="xs" color="fg.muted">
+                Timing
+              </Menu.ItemGroupLabel>
+              <Menu.Item value="calibrate" closeOnSelect onSelect={onCalibrate}>
+                Timing afstemmen…
+                <Menu.ItemCommand fontSize="xs" color="fg.muted">
+                  {latencyMs === null ? 'niet afgestemd' : `${latencyMs} ms`}
+                </Menu.ItemCommand>
+              </Menu.Item>
             </Menu.ItemGroup>
           </Menu.Content>
         </Menu.Positioner>
