@@ -63,7 +63,7 @@ Oefenmachine" (claude.ai/artifact/UwC4ARkj4LRDs7kxjiMw9Q):
 
 Uitbreiding Techniek (requirementsdocument "Guitar Study Mate – Requirements Techniek-uitbreiding",
 9 nov 2026). Besloten in overleg met de eigenaar, nog niet gebouwd tenzij hieronder "klaar":
-- Fases: 0 timing (klaar: kalibratie), 1 bibliotheek + begeleiding, 2 progressies + routes + doelnoten,
+- Fases: 0 timing (klaar: kalibratie), 1 bibliotheek + begeleiding (klaar), 2 progressies + routes + doelnoten,
   3 omspelingen + vulling, 4 iReal-import, 5 leerlijnen.
 - Begeleiding zoals iReal Pro: General MIDI-samples (zelf gehost, licentie per set controleren), eigen
   stijlgeneratoren (eerst swing, bossa, pop: walking bass, comping met stemvoering, drums), per instrument
@@ -150,6 +150,21 @@ Uitbreiding Techniek (requirementsdocument "Guitar Study Mate – Requirements T
   aangevuld met rusten tot hele maten. Een nieuwe noot op een snaar kapt de vorige af; arpeggio's klinken
   door, toonladders legato.
 - Het instrument zit achter `Instrument.play(midi, snaar, tijd, duur)`, zodat samples later kunnen.
+- Bibliotheek: `technique/library.ts` is de enige bron (theory.ts haalt SCALES/ARPEGGIOS eruit; id's van
+  vóór fase 1 blijven gelijk voor presets). Helderheid = gemiddelde interval; karakternoten = graden die
+  afwijken van de dichtstbijzijnde majeurmodus met dezelfde terts (majeurmodi met de hand, B-6); spanning
+  telt ♭9, ♯9 (alleen naast een grote terts), ♯11 (naast de reine kwint), ♭13; "past op" = guide tones +
+  `requires`/`forbids` per akkoordtype (`technique/chords.ts`), en een ladder met kleine én grote terts
+  telt niet als mineur. Handmatige uitzonderingen in `DEGREE_OVERRIDE`, `CHORD_OVERRIDE`, `TENSION_OVERRIDE`.
+- Akkoordsymbolen: `parseChord`/`parseChordLine` in `technique/chords.ts` (ook iReal-schrijfwijzen als
+  ^7, -7, h7, o7, alt). Basis voor P-1/P-2.
+- Begeleiding (`technique/accomp/`): `Accompaniment` plant per maat via `PracticeEngine.tick` op dezelfde
+  klok; stijlen in `styles.ts` (walking bass met chromatische aanloop, rootless voicings A/B met
+  stemvoering, anticipatie op de laatste offbeat, swingverhouding naar tempo, kleine humanisering);
+  samples in `public/sounds/fluidr3/` (elke derde halve toon, resampling ertussen, ~0,9 MB, CC BY 3.0,
+  naamsvermelding in de app en LICENSE.txt); drums en drone gesynthetiseerd. Balans gemeten op gerenderde
+  maten (bas ≈ −23 dB, piano en drums ≈ −30 dB RMS) via `PART_GAIN`. `gleitz.github.io` is vanuit de
+  bouwomgeving geblokkeerd; de samples kwamen via raw.githubusercontent.com.
 - De notenbalk in Techniek is een eigen tekening (`technique/drawScore.ts`), niet de Meespelen-tijdas:
   de speler is nog niet echt gedeeld tussen de modi.
 

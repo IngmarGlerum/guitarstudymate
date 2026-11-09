@@ -1,5 +1,6 @@
 import type { FretNote } from './fingering';
 import { BEATS_PER_BAR, type Subdivision } from './exercise';
+import { Accompaniment, type AccompConfig } from './accomp/accompaniment';
 
 /**
  * The instrument behind a small interface, so the Karplus-Strong string can later
@@ -146,6 +147,16 @@ export class PracticeEngine {
   private clickVolume = 0.6;
   private guitarOn = true;
   private latencyOverride: number | null = null;
+  private accomp: Accompaniment | null = null;
+  private accompConfig: AccompConfig | null = null;
+
+  /** The combo's settings; applied from the next bar while playing. */
+  setAccompaniment(config: AccompConfig) {
+    this.accompConfig = config;
+    this.accomp?.setConfig(config);
+    // switched on (or another piano) mid-play: fetch what is missing
+    if (config.on) void this.accomp?.load().catch(() => undefined);
+  }
 
   /** Measured output latency in seconds, or null to use the browser's estimate. */
   setLatency(seconds: number | null) {
@@ -160,6 +171,7 @@ export class PracticeEngine {
       this.guitarBus.connect(this.ctx.destination);
       this.clickBus.connect(this.ctx.destination);
       this.guitar = new KarplusStrongGuitar(this.ctx, this.guitarBus);
+      if (this.accompConfig) this.accomp = new Accompaniment(this.ctx, this.ctx.destination, this.accompConfig);
       this.applyVolumes();
     }
     return this.ctx;
@@ -192,6 +204,14 @@ export class PracticeEngine {
     const ctx = this.ensure();
     if (ctx.state !== 'running') await ctx.resume();
     this.guitar!.prepare(new Set(opts.slots.filter((s) => s !== null).map((s) => s!.midi)));
+    if (this.accompConfig && !this.accomp) {
+      this.accomp = new Accompaniment(ctx, ctx.destination, this.accompConfig);
+    }
+    if (this.accomp?.config.on) {
+      // the first notes would be missing without the samples; wait for them
+      await this.accomp.load().catch(() => undefined);
+      this.accomp.reset();
+    }
 
     const beat = 60 / opts.bpm;
     const step = beat / opts.subdivision;
@@ -222,6 +242,9 @@ export class PracticeEngine {
       const perBar = BEATS_PER_BAR * opts.subdivision;
       const level = inPass % perBar === 0 ? 0 : inPass % opts.subdivision === 0 ? 1 : 2;
       click(ctx, this.clickBus!, time, level);
+      if (r.next % perBar === 0) {
+        this.accomp?.scheduleBar(r.next / perBar, time, step * opts.subdivision, opts.bpm);
+      }
 
       const note = opts.slots[inPass];
       if (note) {

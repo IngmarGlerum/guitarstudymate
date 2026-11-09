@@ -42,6 +42,15 @@ stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespel
   **Gitaarhals**. De noot die klinkt licht op in beide.
 - Geluid: een Karplus-Strong-snaar en een metronoom op de onderverdeling, allebei vooruit ingepland op de
   Web Audio-klok. Voortellen (één maat), gitaar aan of uit, aparte volumes. Spatie speelt of stopt.
+- **Bibliotheek**: alle ladders, arpeggio's en drieklanken als één lijst intervallen met metadata: familie
+  en modus, graden, helderheid, karakternoten, spanningsnoten en -score, en de akkoorden waarop ze passen.
+  Nieuw: alle modi van melodisch en harmonisch mineur (o.a. lydisch dominant, gealtereerd, frygisch
+  dominant, locrisch ♮2). Het overzicht "Bibliotheek" toont ze als trap, van licht naar donker of van
+  weinig naar veel spanning.
+- **Begeleiding**: een combo van bas, piano (vleugel of elektrisch) en drums in swing, bossa nova of pop,
+  plus een drone op de grondtoon. Per instrument aan/uit en volume. De akkoorden komen bij de ladder
+  (dorisch op D geeft Dm7) of je typt ze zelf, één per maat (Dm7 | G7alt | Cmaj7). Bas en piano zijn
+  samples uit de FluidR3_GM-soundfont (CC BY 3.0); drums en drone worden in de browser gemaakt.
 - **Presets**: sla de huidige oefening onder een naam op en laad hem later terug. Presets staan alleen in
   deze browser (localStorage, JSON, geen account); exporteer en importeer ze als bestand als vangnet.
 

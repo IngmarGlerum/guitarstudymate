@@ -1,6 +1,6 @@
 import { Box, Button, chakra, Flex, IconButton, SegmentGroup, Slider, Switch, Text } from '@chakra-ui/react';
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
-import { LuBookmark, LuPlay, LuSquare } from 'react-icons/lu';
+import { LuBookmark, LuLibrary, LuPlay, LuSquare } from 'react-icons/lu';
 import { overlayContext, useCanvas } from '../../hooks/useCanvas';
 import { useFrame } from '../../hooks/useFrame';
 import { useStoredState } from '../../hooks/useStoredState';
@@ -23,6 +23,11 @@ import { Hint } from '../Hint';
 import { ExerciseSettingsPanel } from './ExerciseSettingsPanel';
 import { PatternDialog } from './PatternDialog';
 import { PresetsDialog } from './PresetsDialog';
+import { LibraryDialog } from './LibraryDialog';
+import { AccompanimentPanel, type AccompPrefs } from './AccompanimentPanel';
+import { chordName, parseChordLine, type Chord } from '../../technique/chords';
+import { libraryEntry } from '../../technique/library';
+import type { AccompConfig } from '../../technique/accomp/accompaniment';
 import type { LatencyState } from '../../audio/latency';
 
 type View = 'neck' | 'tab';
@@ -37,6 +42,22 @@ interface AudioPrefs {
 const DEFAULT_AUDIO: AudioPrefs = { guitarOn: true, guitarVolume: 0.8, clickVolume: 0.6, countIn: true };
 const isAudio = (v: unknown): v is AudioPrefs =>
   typeof v === 'object' && v !== null && 'guitarOn' in v && 'clickVolume' in v;
+
+const DEFAULT_ACCOMP: AccompPrefs = {
+  on: false,
+  style: 'swing',
+  source: 'scale',
+  customLine: 'Dm7 | G7 | Cmaj7 | Cmaj7',
+  pianoSound: 'acoustic_grand_piano',
+  parts: {
+    bass: { on: true, volume: 0.8 },
+    piano: { on: true, volume: 0.7 },
+    drums: { on: true, volume: 0.7 },
+    drone: { on: false, volume: 0.6 },
+  },
+};
+const isAccomp = (v: unknown): v is AccompPrefs =>
+  typeof v === 'object' && v !== null && 'style' in v && 'parts' in v && 'source' in v;
 
 const thumbShadow = '0 0 0 2px #1a1009, 0 2px 6px rgba(0,0,0,0.6)';
 const trackBg = 'rgba(241,230,204,0.16)';
@@ -54,8 +75,10 @@ export function TechniqueView({
   const { settings, update, replace, perStringOptions, positionOptions } = useExerciseSettings();
   const presets = usePresets();
   const [presetsOpen, setPresetsOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [view, setView] = useStoredState<View>('gsm.technique.view', 'neck', isView);
   const [audio, setAudio] = useStoredState<AudioPrefs>('gsm.audio', DEFAULT_AUDIO, isAudio);
+  const [accomp, setAccomp] = useStoredState<AccompPrefs>('gsm.accompaniment', DEFAULT_ACCOMP, isAccomp);
   const [playing, setPlaying] = useState(false);
   const [patternOpen, setPatternOpen] = useState(false);
 
@@ -79,6 +102,27 @@ export function TechniqueView({
   }, [audio]);
 
   const flats = ROOTS.find((r) => r.pc === settings.rootPc)?.flats ?? false;
+
+  // the combo: chords from the scale's home chord, or typed by the user
+  const scaleChord = useMemo<Chord>(() => {
+    const entry = libraryEntry(settings.kind === 'arpeggio' ? settings.arpeggioId : settings.scaleId);
+    return { rootPc: settings.rootPc, type: entry?.homeChord ?? 'maj7' };
+  }, [settings.kind, settings.arpeggioId, settings.scaleId, settings.rootPc]);
+  const custom = useMemo(() => parseChordLine(accomp.customLine), [accomp.customLine]);
+  const accompConfig = useMemo<AccompConfig>(
+    () => ({
+      on: accomp.on,
+      style: accomp.style,
+      chords: accomp.source === 'custom' && custom.chords.length ? custom.chords : [scaleChord],
+      pianoSound: accomp.pianoSound,
+      droneRoot: 48 + settings.rootPc,
+      parts: accomp.parts,
+    }),
+    [accomp, custom, scaleChord, settings.rootPc],
+  );
+  useEffect(() => {
+    engine().setAccompaniment(accompConfig);
+  }, [accompConfig]);
   const fingering = useMemo(() => fingeringFor(settings), [settings]);
   const slots = useMemo(() => layoutPass(settings), [settings]);
   const layout = useMemo(() => scoreLayout(slots, settings.subdivision), [slots, settings.subdivision]);
@@ -268,9 +312,14 @@ export function TechniqueView({
           <Text fontFamily="heading" fontSize={{ base: 'lg', md: 'xl' }} fontWeight="500" minW="0">
             {title}
           </Text>
-          <Button size="sm" variant="outline" colorPalette="brass" onClick={() => setPresetsOpen(true)}>
-            <LuBookmark /> Presets
-          </Button>
+          <Flex gap="2">
+            <Button size="sm" variant="ghost" onClick={() => setLibraryOpen(true)}>
+              <LuLibrary /> Bibliotheek
+            </Button>
+            <Button size="sm" variant="outline" colorPalette="brass" onClick={() => setPresetsOpen(true)}>
+              <LuBookmark /> Presets
+            </Button>
+          </Flex>
         </Flex>
         <ExerciseSettingsPanel
           settings={settings}
@@ -350,6 +399,13 @@ export function TechniqueView({
           </Box>
         </Box>
       )}
+
+      <AccompanimentPanel
+        prefs={accomp}
+        onChange={setAccomp}
+        scaleChordName={chordName(scaleChord, flats)}
+        unknown={accomp.source === 'custom' ? custom.unknown : []}
+      />
 
       {/* transport */}
       <Flex
@@ -435,6 +491,7 @@ export function TechniqueView({
         </Flex>
       </Flex>
 
+      <LibraryDialog open={libraryOpen} onClose={() => setLibraryOpen(false)} />
       <PresetsDialog
         open={presetsOpen}
         onClose={() => setPresetsOpen(false)}
