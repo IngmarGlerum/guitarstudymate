@@ -23,6 +23,7 @@ import { Hint } from '../Hint';
 import { ExerciseSettingsPanel } from './ExerciseSettingsPanel';
 import { PatternDialog } from './PatternDialog';
 import { PresetsDialog } from './PresetsDialog';
+import type { LatencyState } from '../../audio/latency';
 
 type View = 'neck' | 'tab';
 const isView = (v: unknown): v is View => v === 'neck' || v === 'tab';
@@ -41,7 +42,15 @@ const thumbShadow = '0 0 0 2px #1a1009, 0 2px 6px rgba(0,0,0,0.6)';
 const trackBg = 'rgba(241,230,204,0.16)';
 
 /** The Techniek mode: a configurable exercise, a metronome, and notes that light up in sync. */
-export function TechniqueView({ active }: { active: boolean }) {
+export function TechniqueView({
+  active,
+  latency,
+  onCalibrate,
+}: {
+  active: boolean;
+  latency: LatencyState;
+  onCalibrate: () => void;
+}) {
   const { settings, update, replace, perStringOptions, positionOptions } = useExerciseSettings();
   const presets = usePresets();
   const [presetsOpen, setPresetsOpen] = useState(false);
@@ -53,6 +62,14 @@ export function TechniqueView({ active }: { active: boolean }) {
   const engineRef = useRef<PracticeEngine | null>(null);
   const engine = () => (engineRef.current ??= new PracticeEngine());
   useEffect(() => () => engineRef.current?.dispose(), []);
+
+  const latencyMs = latency.calibration?.ms ?? null;
+  useEffect(() => {
+    engine().setLatency(latencyMs === null ? null : latencyMs / 1000);
+  }, [latencyMs]);
+  // hint to calibrate: after the first play without a calibration, or after a device change
+  const [hasPlayed, setHasPlayed] = useState(false);
+  const showTimingHint = latency.deviceChanged || (hasPlayed && latencyMs === null);
 
   useEffect(() => {
     const e = engine();
@@ -80,6 +97,7 @@ export function TechniqueView({ active }: { active: boolean }) {
       onEnd: () => setPlaying(false),
     });
     setPlaying(true);
+    setHasPlayed(true);
   }, [slots, settings.subdivision, settings.bpm, settings.repeats, settings.kind, audio.countIn]);
 
   const stopPlayback = useCallback(() => {
@@ -365,6 +383,11 @@ export function TechniqueView({ active }: { active: boolean }) {
             <Text fontSize="xs" color="fg.muted" minH="1.2em">
               <span ref={statusRef} />
             </Text>
+            {showTimingHint && (
+              <Button size="2xs" variant="plain" color="brass.300" px="0" h="auto" onClick={onCalibrate}>
+                {latency.deviceChanged ? 'Ander audioapparaat? Timing afstemmen' : 'Timing nog niet afgestemd · Afstemmen'}
+              </Button>
+            )}
           </Flex>
         </Flex>
 

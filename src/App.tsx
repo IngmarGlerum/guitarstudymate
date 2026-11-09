@@ -1,9 +1,11 @@
 import { Box, Button, Flex, Heading, SegmentGroup } from '@chakra-ui/react';
-import { useCallback, useEffect, useRef, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { LuUpload } from 'react-icons/lu';
 import { MESSAGES, useAudioTransport } from './audio/useAudioTransport';
 import { Logo } from './components/Logo';
 import { SettingsMenu } from './components/SettingsMenu';
+import { LatencyDialog } from './components/LatencyDialog';
+import { useLatencyCalibration } from './audio/latency';
 import { DEFAULT_APP_SETTINGS, isAppSettings, type AppSettings } from './lib/appSettings';
 import { TechniqueView } from './components/technique/TechniqueView';
 import { Timeline } from './components/timeline/Timeline';
@@ -34,6 +36,8 @@ export default function App() {
     DEFAULT_APP_SETTINGS,
     isAppSettings,
   );
+  const latency = useLatencyCalibration();
+  const [latencyOpen, setLatencyOpen] = useState(false);
   const { setReturnOnStop } = transport;
   useEffect(() => {
     setReturnOnStop(appSettings.returnToStartOnStop);
@@ -144,14 +148,23 @@ export default function App() {
                 ]}
               />
             </SegmentGroup.Root>
-            <SettingsMenu settings={appSettings} onChange={setAppSettings} />
+            <SettingsMenu
+              settings={appSettings}
+              onChange={setAppSettings}
+              latencyMs={latency.calibration?.ms ?? null}
+              onCalibrate={() => setLatencyOpen(true)}
+            />
           </Flex>
         </Flex>
       </Box>
 
       <Box as="main" flex="1" w="full" maxW="1360px" mx="auto" px={{ base: 3, md: 8 }} py={{ base: 4, md: 8 }}>
         <Box display={mode === 'technique' ? 'block' : 'none'}>
-          <TechniqueView active={mode === 'technique'} />
+          <TechniqueView
+            active={mode === 'technique'}
+            latency={latency}
+            onCalibrate={() => setLatencyOpen(true)}
+          />
         </Box>
         {mode === 'play' && (
           <Box
@@ -205,6 +218,8 @@ export default function App() {
           </Heading>
         </Flex>
       )}
+
+      <LatencyDialog open={latencyOpen} onClose={() => setLatencyOpen(false)} latency={latency} />
 
       <input
         ref={inputRef}

@@ -55,7 +55,11 @@ stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespel
   Ga je in de lineaal tussen de locators staan, dan verschijnt een greep: daarmee schuif je de hele loop op,
   zonder dat de lengte verandert. Met het toetsenbord: Tab naar de greep, dan ← → (met Shift in stappen van 1 seconde).
   Weggooien: het kruisje op de loop, "Wissen" in de afspeelbalk, of Delete.
-- **Instellingen** (tandwiel rechtsboven): Afspeelkop › Terug naar startpositie bij stoppen.
+- **Instellingen** (tandwiel rechtsboven): Afspeelkop › Terug naar startpositie bij stoppen, en
+  Timing › **Timing afstemmen…**: tik zestien keer mee op een klik; de app meet hoeveel later je koptelefoon
+  of speaker het geluid laat horen (vooral Bluetooth) en laat de oplichtende noten in Techniek daarop
+  wachten. Met een controle (klik plus lichtje) en een schuif om bij te stellen. Na de eerste keer afspelen
+  zonder afstemming, of als er een audioapparaat bij komt of weggaat, staat er een hint bij de afspeelknop.
 - Na het herkennen van de noten zoomt de tijdas in tot de noten leesbaar zijn (en verder als een ingevuld
   tempo dat vraagt); uitzoomen doet hij nooit vanzelf.
 - **Snelheid** van 0,25× tot 2× met behoud van toonhoogte, plus presets.

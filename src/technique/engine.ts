@@ -145,6 +145,12 @@ export class PracticeEngine {
   private guitarVolume = 0.8;
   private clickVolume = 0.6;
   private guitarOn = true;
+  private latencyOverride: number | null = null;
+
+  /** Measured output latency in seconds, or null to use the browser's estimate. */
+  setLatency(seconds: number | null) {
+    this.latencyOverride = seconds;
+  }
 
   private ensure() {
     if (!this.ctx) {
@@ -263,7 +269,9 @@ export class PracticeEngine {
     const ctx = this.ctx;
     const r = this.run;
     if (!ctx || !r) return null;
-    const latency = (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
+    // a measured calibration wins over what the browser reports (often too low on Bluetooth)
+    const latency =
+      this.latencyOverride ?? (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
     const now = ctx.currentTime - latency;
     if (now < r.t0) return { slot: -1, countIn: true };
     const k = Math.floor((now - r.t0) / r.step);
