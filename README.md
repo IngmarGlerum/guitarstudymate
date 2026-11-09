@@ -64,6 +64,18 @@ stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespel
   - **Positie**: een fretvenster van vijf frets; "Positie volgen" schuift het per akkoord mee met de hand.
   - Akkoordnamen boven de balk (het klinkende licht op), doelnoten met een stip, in de tab met een messing
     ring, op de hals met een dubbele ring. Een selectie van maten om in een lus te oefenen.
+  - **Omspelingen** (Inhoud): de doelnoot op de eerste tel waarop het doelakkoord klinkt (ook halverwege
+    een maat), met de omspeling ervoor; de rest is rust. 23 vormen in vijf groepen: één noot (chromatisch
+    of diatonisch, van onder of boven), van twee kanten, langere lijnen, vanuit een akkoord (dominant van
+    het doel, verminderd op de leidtoon, tritonussubstituut) en ladders met spanning (bebop met
+    doorgangsnoot, alterated, heletoons, half–heel vlak voor het doel). Vink er meerdere aan: per doelnoot
+    de volgende of een willekeurige. Diatonische stappen volgen de ladder die op dat moment klinkt.
+    Aankomst op de tel, als anticipatie of als voorhouding. Gevorderd: vul de rest met de ladder, het
+    arpeggio of een patroon. Past een omspeling niet voor de volgende akkoordwissel, dan vraagt het venster
+    "Maak je oefening passend": **Make it fit!** (alles in zestienden of triolen) of **Make it shorter**
+    (de noten het verst van de doelnoot vallen weg). De keuze blijft bewaard, ook in presets. Bij bebop
+    meldt de app welke tel geen akkoordtoon krijgt. Omspelingsnoten: open ringetje onder de balk, gestippelde
+    ring in de tab en op de hals.
 - **Presets**: sla de huidige oefening onder een naam op en laad hem later terug. Presets staan alleen in
   deze browser (localStorage, JSON, geen account); exporteer en importeer ze als bestand als vangnet.
 

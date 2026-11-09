@@ -146,12 +146,20 @@ export function drawScore(
   // chord names above the staff, and a small mark under every target note
   ctx.textBaseline = 'alphabetic';
   for (const c of layout.chords) drawChordLabel(ctx, layout, c, false);
+  // and a small ring under every approach note (enclosures)
   layout.slots.forEach((n, i) => {
-    if (n?.role !== 'target') return;
-    ctx.fillStyle = palette.brass;
-    ctx.beginPath();
-    ctx.arc(layout.noteX(i) + NOTE_CENTER, STAFF_H - 8, 2.6, 0, Math.PI * 2);
-    ctx.fill();
+    if (n?.role === 'target') {
+      ctx.fillStyle = palette.brass;
+      ctx.beginPath();
+      ctx.arc(layout.noteX(i) + NOTE_CENTER, STAFF_H - 8, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (n?.role === 'approach') {
+      ctx.strokeStyle = palette.honey;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(layout.noteX(i) + NOTE_CENTER, STAFF_H - 8, 2.4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   });
 
   if (!opts.showTab) return;
@@ -208,6 +216,16 @@ function drawFret(
     ctx.strokeStyle = palette.brass;
     ctx.lineWidth = 1.5;
     ctx.stroke();
+  } else if (n.role === 'approach') {
+    // approach notes: a dashed ring of the same size
+    ctx.save();
+    ctx.setLineDash([2.5, 2.5]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 11.5, 0, Math.PI * 2);
+    ctx.strokeStyle = palette.honey;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
   }
   ctx.font = "600 11px 'Instrument Sans Variable', system-ui, sans-serif";
   ctx.textAlign = 'center';

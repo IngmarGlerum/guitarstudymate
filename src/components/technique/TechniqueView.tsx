@@ -30,6 +30,9 @@ import { keyName } from '../../technique/harmony';
 import { parseProgression, segmentsOf, BUILTIN_PROGRESSIONS } from '../../technique/progressions';
 import { useProgression } from '../../technique/useProgression';
 import { RoutesPanel } from './RoutesPanel';
+import { EnclosuresPanel } from './EnclosuresPanel';
+import { FitDialog } from './FitDialog';
+import { enclosureNeed, enclosureRoom } from '../../technique/progressionExercise';
 import { libraryEntry } from '../../technique/library';
 import type { AccompConfig } from '../../technique/accomp/accompaniment';
 import type { LatencyState } from '../../audio/latency';
@@ -84,7 +87,8 @@ export function TechniqueView({
   const [audio, setAudio] = useStoredState<AudioPrefs>('gsm.audio', DEFAULT_AUDIO, isAudio);
   const [accomp, setAccomp] = useStoredState<AccompPrefs>('gsm.accompaniment', DEFAULT_ACCOMP, isAccomp);
   const [playing, setPlaying] = useState(false);
-  const [patternOpen, setPatternOpen] = useState(false);
+  // the pattern dialog edits the exercise's own pattern, or the fill after enclosures
+  const [patternOpen, setPatternOpen] = useState<false | 'exercise' | 'fill'>(false);
 
   const engineRef = useRef<PracticeEngine | null>(null);
   const engine = () => (engineRef.current ??= new PracticeEngine());
@@ -112,6 +116,12 @@ export function TechniqueView({
   const [passIndex, setPassIndex] = useState(0);
   const progPass = useMemo(() => (isProg ? passFor(passIndex) : null), [isProg, passFor, passIndex]);
   const keyPc = isProg ? prog.plan.key.pc : settings.rootPc;
+  // Make it fit! may play the progression faster than the chosen subdivision
+  const sub = isProg ? prog.subdivision : settings.subdivision;
+  const enclosures = isProg && settings.content === 'enclosures';
+  const misfit = enclosures && !prog.fitsAsIs && settings.fitMode === 'ask' && prog.forms.length > 0;
+  const [fitDismissed, setFitDismissed] = useState(false);
+  if (!misfit && fitDismissed) setFitDismissed(false);
   const flats = ROOTS.find((r) => r.pc === keyPc)?.flats ?? false;
 
   // the combo: chords from the scale's home chord, or typed by the user
@@ -148,14 +158,11 @@ export function TechniqueView({
   const chordLabels = useMemo(
     () =>
       isProg
-        ? progSegs.map((sg) => ({ slot: Math.round(sg.start * settings.subdivision), text: chordName(sg.chord, flats) }))
+        ? progSegs.map((sg) => ({ slot: Math.round(sg.start * sub), text: chordName(sg.chord, flats) }))
         : [],
-    [isProg, progSegs, settings.subdivision, flats],
+    [isProg, progSegs, sub, flats],
   );
-  const layout = useMemo(
-    () => scoreLayout(slots, settings.subdivision, chordLabels),
-    [slots, settings.subdivision, chordLabels],
-  );
+  const layout = useMemo(() => scoreLayout(slots, sub, chordLabels), [slots, sub, chordLabels]);
   const showTab = view === 'tab';
 
   // ---- playback ----
@@ -165,18 +172,20 @@ export function TechniqueView({
     setPassIndex(0);
     void engine().start({
       slots: first,
-      subdivision: settings.subdivision,
+      subdivision: sub,
       bpm: settings.bpm,
       repeats: settings.repeats,
       countIn: audio.countIn,
-      // arpeggios and lone target notes ring; scale runs are legato
-      ring: settings.kind === 'arpeggio' || (isProg && settings.content === 'targets'),
+      // arpeggios and lone target notes (also after an enclosure) ring; runs are legato
+      ring:
+        settings.kind === 'arpeggio' ||
+        (isProg && (settings.content === 'targets' || (settings.content === 'enclosures' && settings.fill === 'rest'))),
       passSlots: isProg ? (p) => passFor(p).slots : undefined,
       onEnd: () => setPlaying(false),
     });
     setPlaying(true);
     setHasPlayed(true);
-  }, [slots, settings.subdivision, settings.bpm, settings.repeats, settings.kind, settings.content, audio.countIn, isProg, passFor]);
+  }, [slots, sub, settings.bpm, settings.repeats, settings.kind, settings.content, settings.fill, audio.countIn, isProg, passFor]);
 
   const stopPlayback = useCallback(() => {
     engineRef.current?.stop();
@@ -184,7 +193,7 @@ export function TechniqueView({
   }, []);
 
   // a changed exercise restarts playback, so what you hear always matches the screen
-  const restartKey = `${JSON.stringify((isProg ? passFor(0).slots : slots).map((s) => s?.midi ?? -1))}|${settings.bpm}|${settings.subdivision}|${settings.repeats}|${settings.kind}|${settings.content}|${settings.routeLayer}|${settings.routeOrder}|${JSON.stringify(settings.routeOff)}`;
+  const restartKey = `${JSON.stringify((isProg ? passFor(0).slots : slots).map((s) => s?.midi ?? -1))}|${settings.bpm}|${sub}|${settings.repeats}|${settings.kind}|${settings.content}|${settings.routeLayer}|${settings.routeOrder}|${JSON.stringify(settings.routeOff)}`;
   const lastKey = useRef(restartKey);
   useEffect(() => {
     if (lastKey.current === restartKey) return;
@@ -327,7 +336,8 @@ export function TechniqueView({
       const seg = slot >= 0 ? (pp.segOfSlot[slot] ?? 0) : shownSeg.current;
       shownSeg.current = seg;
       const target = pp.slots.find((n, i) => pp.segOfSlot[i] === seg && n?.role === 'target') ?? null;
-      drawNeckProgression(nctx, st.neck, pp.boxes[seg] ?? [], target, neckNote, pp.windows[seg] ?? 0, st.flats);
+      const approaches = pp.slots.filter((n, i): n is FretNote => pp.segOfSlot[i] === seg && n?.role === 'approach');
+      drawNeckProgression(nctx, st.neck, pp.boxes[seg] ?? [], target, neckNote, pp.windows[seg] ?? 0, st.flats, approaches);
     } else if (nctx) drawNeckHighlight(nctx, st.neck, neckNote, st.flats);
     // keep the current note in view
     const scroller = scoreScroller.current;
@@ -377,13 +387,26 @@ export function TechniqueView({
           update={update}
           perStringOptions={perStringOptions}
           positionOptions={positionOptions}
-          onEditPattern={() => setPatternOpen(true)}
+          onEditPattern={() => setPatternOpen('exercise')}
+          onEditFillPattern={() => setPatternOpen('fill')}
           prog={prog}
         />
       </Box>
 
       {isProg && progPass && (
         <RoutesPanel plan={prog.plan} settings={settings} update={update} flats={flats} current={progPass.routeIds} barOffset={prog.from} />
+      )}
+      {enclosures && progPass && (
+        <EnclosuresPanel
+          settings={settings}
+          update={update}
+          subdivision={sub}
+          shortened={prog.shortened}
+          beatIssues={progPass.beatIssues}
+          segs={progSegs}
+          flats={flats}
+          barOffset={prog.from}
+        />
       )}
 
       {/* notenbalk (and tab), always on top */}
@@ -557,13 +580,25 @@ export function TechniqueView({
         presets={presets}
       />
       <PatternDialog
-        open={patternOpen}
+        open={patternOpen !== false}
         initial={settings.pattern}
         onClose={() => setPatternOpen(false)}
         onApply={(pattern) => {
-          update({ kind: 'pattern', pattern });
+          update(patternOpen === 'fill' ? { pattern } : { kind: 'pattern', pattern });
           setPatternOpen(false);
         }}
+      />
+      <FitDialog
+        open={misfit && !fitDismissed}
+        need={enclosureNeed(prog.forms)}
+        room={{
+          now: enclosureRoom(progSegs, settings.subdivision),
+          triplets: enclosureRoom(progSegs, 3),
+          sixteenths: enclosureRoom(progSegs, 4),
+        }}
+        subdivision={settings.subdivision}
+        onChoose={(fitMode) => update({ fitMode })}
+        onClose={() => setFitDismissed(true)}
       />
     </Box>
   );

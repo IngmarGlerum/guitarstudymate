@@ -1,4 +1,5 @@
-import { Input, Switch, Text } from '@chakra-ui/react';
+import { Button, Input, Switch, Text } from '@chakra-ui/react';
+import { LuPencil } from 'react-icons/lu';
 import type { ExerciseSettings } from '../../technique/exercise';
 import { keyName } from '../../technique/harmony';
 import { BUILTIN_PROGRESSIONS } from '../../technique/progressions';
@@ -16,11 +17,14 @@ export function ProgressionFields({
   settings,
   update,
   prog,
+  onEditFillPattern,
 }: {
   settings: ExerciseSettings;
   update: (patch: Partial<ExerciseSettings>) => void;
   prog: ProgressionState;
+  onEditFillPattern: () => void;
 }) {
+  const enclosures = settings.content === 'enclosures';
   const bars = Array.from({ length: prog.totalBars }, (_, i) => String(i + 1));
   const autoFlats = ROOTS.find((r) => r.pc === prog.autoKey.pc)?.flats ?? false;
 
@@ -85,8 +89,52 @@ export function ProgressionFields({
         options={[
           { value: 'targets', label: 'Alleen doelnoten' },
           { value: 'scale', label: 'Ladder per akkoord' },
+          { value: 'enclosures', label: 'Omspelingen' },
         ]}
       />
+      {enclosures && (
+        <>
+          <Select
+            label="Aankomst doelnoot"
+            value={settings.enclosureRhythm}
+            onChange={(v) => update({ enclosureRhythm: v as ExerciseSettings['enclosureRhythm'] })}
+            options={[
+              { value: 'onBeat', label: 'Op de tel' },
+              { value: 'anticipation', label: 'Anticipatie (een noot eerder)' },
+              { value: 'suspension', label: 'Voorhouding (een noot later)' },
+            ]}
+          />
+          <Select
+            label="Rest van het akkoord"
+            value={settings.fill}
+            onChange={(v) => update({ fill: v as ExerciseSettings['fill'] })}
+            options={[
+              { value: 'rest', label: 'Rust' },
+              { value: 'scale', label: 'Ladder (lineair)' },
+              { value: 'arpeggio', label: 'Arpeggio' },
+              { value: 'pattern', label: 'Patroon' },
+            ]}
+          />
+          {settings.fill === 'pattern' && (
+            <Field label="Patroon">
+              <Button size="sm" variant="outline" colorPalette="brass" onClick={onEditFillPattern}>
+                {settings.pattern.join(' ')} <LuPencil />
+              </Button>
+            </Field>
+          )}
+          <Select
+            label="Past het niet?"
+            value={settings.fitMode}
+            onChange={(v) => update({ fitMode: v as ExerciseSettings['fitMode'] })}
+            options={[
+              { value: 'ask', label: 'Vragen' },
+              { value: 'sixteenths', label: 'Sneller: zestienden' },
+              { value: 'triplets', label: 'Sneller: triolen' },
+              { value: 'shorter', label: 'Korter' },
+            ]}
+          />
+        </>
+      )}
       <Select
         label="Doelnoten"
         value={settings.targetMode}

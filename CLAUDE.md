@@ -64,7 +64,7 @@ Oefenmachine" (claude.ai/artifact/UwC4ARkj4LRDs7kxjiMw9Q):
 Uitbreiding Techniek (requirementsdocument "Guitar Study Mate – Requirements Techniek-uitbreiding",
 9 nov 2026). Besloten in overleg met de eigenaar, nog niet gebouwd tenzij hieronder "klaar":
 - Fases: 0 timing (klaar: kalibratie), 1 bibliotheek + begeleiding (klaar), 2 progressies + routes + doelnoten (klaar),
-  3 omspelingen + vulling, 4 iReal-import, 5 leerlijnen.
+  3 omspelingen + vulling (klaar), 4 iReal-import, 5 leerlijnen.
 - Begeleiding zoals iReal Pro: General MIDI-samples (zelf gehost, licentie per set controleren), eigen
   stijlgeneratoren (eerst swing, bossa, pop: walking bass, comping met stemvoering, drums), per instrument
   aan/uit en volume, één klok met de oefening. Ook een drone voor de modale leerlijn.
@@ -173,6 +173,16 @@ Uitbreiding Techniek (requirementsdocument "Guitar Study Mate – Requirements T
   herhaling `passSlots(p)` op; de UI wisselt `passIndex` op de grens van een herhaling (één render per
   herhaling). De begeleiding krijgt een tijdlijn `{chord, beats}[]` en speelt meerdere akkoorden per maat.
   Een tel zonder noten wordt als één kwartrust geschreven.
+- Omspelingen (fase 3): `technique/enclosures.ts` (vorm = lijst stappen `{dist, type}` in halve tonen of
+  ladderstappen t.o.v. de doelnoot, O-1; groep 4 als vaste chromatische afstanden; groep 5 met eigen ladder
+  op de dominant van het doelakkoord of `bebop` = klinkende ladder + doorgangsnoot). `buildEnclosurePass`
+  in `progressionExercise.ts`: eerst de doelnoten (stemvoering tussen doelnoten), dan per doelnoot de
+  omspeling in de slots ervóór, met per noot de ladder van het akkoord dat dan klinkt; daarna de vulling.
+  Ruimte = slots van het vorige akkoord − 1. De omspeling naar het eerste akkoord staat aan het eind van de
+  herhaling en leidt naar het eerste doel van de volgende (`wrapTarget`, vorm van `pass + 1`). Make it fit!
+  verhoogt de onderverdeling van de hele oefening (`prog.subdivision`), want engine en notenbalk kennen één
+  raster; blijft het te krap, dan alsnog korter. Een diatonische halve toon die samenvalt met de chromatische
+  wordt één noot. Niet gebouwd: parallelle akkoordvorm (groep 4), ritmewaarde per stap.
 - De notenbalk in Techniek is een eigen tekening (`technique/drawScore.ts`), niet de Meespelen-tijdas:
   de speler is nog niet echt gedeeld tussen de modi.
 
@@ -217,6 +227,10 @@ stekkers in messing, de ES-335 sunburst en de tweed Fender-versterker.
   E2 tot E6 binnen 1 cent), voortellen, highlight in notenbalk, tab en hals, 4 noten per snaar, B♭7-arpeggio
   in triolen, patroon 1 2 3 7, heletoons met één positie, telefoonbreedte. Het geluid en de timing zijn niet
   beluisterd; de synchronisatie op een echt apparaat (output-latency, Bluetooth) is niet gecontroleerd.
+- Fase 3 is getest met Node (alle 23 voorbeelden uit de requirements kloppen, plaatsing, inkorten, anticipatie,
+  voorhouding, vulling ladder/arpeggio/patroon, bebopcontrole) en in headless Chromium (venster "Maak je
+  oefening passend" bij twee akkoorden per maat, Make it fit! naar zestienden, Korter, hals en tab tijdens het
+  afspelen, telefoonbreedte). Niet beluisterd; of de vormen muzikaal goed voelen moet de eigenaar beoordelen.
 - Stap 3 is getest in headless Chromium op hetzelfde bestand: 4/4 en 3/4, tikken, inzoomen, telefoonbreedte.
   Nootkoppen vallen binnen een paar pixels op hun aanslag. Niet geprobeerd: lange stukken, snelle loopjes,
   echte opnames.

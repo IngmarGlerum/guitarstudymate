@@ -38,8 +38,8 @@ export interface ExerciseSettings {
   /** bars to loop, 1-based and inclusive; 0 = to the end (P-8) */
   barFrom: number;
   barTo: number;
-  /** only the target notes, or a scale run from each target */
-  content: 'targets' | 'scale';
+  /** only the target notes, a scale run from each target, or enclosures (phase 3) */
+  content: 'targets' | 'scale' | 'enclosures';
   targetMode: 'guide' | 'all';
   /** lowest fret of the window */
   windowLo: number;
@@ -50,6 +50,17 @@ export interface ExerciseSettings {
   routeOrder: 'sequence' | 'random';
   /** routes unticked per unit (key: see unitKey) */
   routeOff: Record<string, string[]>;
+
+  // ---- enclosures (phase 3) ----
+  /** forms that are on; the exercise takes one per target note (O-6) */
+  enclosureIds: string[];
+  enclosureOrder: 'sequence' | 'random';
+  /** arrival of the target: on the beat, a slot early or a slot late (O-2, O-5) */
+  enclosureRhythm: 'onBeat' | 'anticipation' | 'suspension';
+  /** what fills the rest of the chord: rests (entry level) or a scale, arpeggio or pattern */
+  fill: 'rest' | 'scale' | 'arpeggio' | 'pattern';
+  /** when an enclosure does not fit the harmonic rhythm: ask, play faster, or shorten */
+  fitMode: 'ask' | 'sixteenths' | 'triplets' | 'shorter';
 }
 
 export const DEFAULT_SETTINGS: ExerciseSettings = {
@@ -76,6 +87,11 @@ export const DEFAULT_SETTINGS: ExerciseSettings = {
   routeLayer: 'common',
   routeOrder: 'sequence',
   routeOff: {},
+  enclosureIds: ['c-below'],
+  enclosureOrder: 'sequence',
+  enclosureRhythm: 'onBeat',
+  fill: 'rest',
+  fitMode: 'ask',
 };
 
 export const BEATS_PER_BAR = 4;
