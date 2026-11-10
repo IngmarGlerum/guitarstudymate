@@ -76,6 +76,13 @@ stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespel
     (de noten het verst van de doelnoot vallen weg). De keuze blijft bewaard, ook in presets. Bij bebop
     meldt de app welke tel geen akkoordtoon krijgt. Omspelingsnoten: open ringetje onder de balk, gestippelde
     ring in de tab en op de hals.
+- **Lick** (type oefening): oefen licks uit je eigen materiaal. Importeer een licks-bestand
+  (`guitar-study-mate/licks`, JSON); de licks blijven alleen in deze browser en zitten niet in de app.
+  Kies een lick op nummer, speel hem in elke toonsoort (transponeren) en in een positie (fretvenster).
+  De notenbalk toont de echte ritmes (kwarten, gepunteerd, overbindingen, triolen, rusten), met tab,
+  akkoorden en begeleiding. Formaat van de noten per lick: `e5/8 d5 c5 b4 | g4/4. (3 f4/8 g4 f4) | c4/2~ c4/4 r/4`
+  (toonhoogte zoals geschreven voor gitaar, `/8` enz. voor de duur die doorloopt, `.` gepunteerd, `~` overbinden,
+  `(3 … )` triool, `|` maatstreep; elke maat moet 4 tellen hebben).
 - **Presets**: sla de huidige oefening onder een naam op en laad hem later terug. Presets staan alleen in
   deze browser (localStorage, JSON, geen account); exporteer en importeer ze als bestand als vangnet.
 

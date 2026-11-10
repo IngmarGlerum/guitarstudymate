@@ -1,7 +1,7 @@
 import { arpeggioFingering, scaleFingering, type FretNote } from './fingering';
 import { ARPEGGIOS, SCALES, type Formula } from './theory';
 
-export type ExerciseKind = 'scale' | 'arpeggio' | 'pattern' | 'progression';
+export type ExerciseKind = 'scale' | 'arpeggio' | 'pattern' | 'progression' | 'lick';
 export type Direction = 'up' | 'down' | 'updown';
 /** notes per beat: quarters, eighths, triplets, sixteenths */
 export type Subdivision = 1 | 2 | 3 | 4;
@@ -61,6 +61,12 @@ export interface ExerciseSettings {
   fill: 'rest' | 'scale' | 'arpeggio' | 'pattern';
   /** when an enclosure does not fit the harmonic rhythm: ask, play faster, or shorten */
   fitMode: 'ask' | 'sixteenths' | 'triplets' | 'shorter';
+
+  // ---- licks (imported) ----
+  /** number of the lick (as in its source) */
+  lickNumber: number;
+  /** key to play it in: a root pitch class, or -1 for the original key */
+  lickKey: number;
 }
 
 export const DEFAULT_SETTINGS: ExerciseSettings = {
@@ -92,6 +98,8 @@ export const DEFAULT_SETTINGS: ExerciseSettings = {
   enclosureRhythm: 'onBeat',
   fill: 'rest',
   fitMode: 'ask',
+  lickNumber: 0,
+  lickKey: -1,
 };
 
 export const BEATS_PER_BAR = 4;

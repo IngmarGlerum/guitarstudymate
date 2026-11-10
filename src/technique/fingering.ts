@@ -11,6 +11,8 @@ export interface FretNote {
   slide?: boolean;
   /** in progressions: a target note (chord tone on the chord's first beat) */
   role?: 'target' | 'approach';
+  /** licks: length in slots (the note sounds that long) */
+  len?: number;
 }
 
 export interface Fingering {

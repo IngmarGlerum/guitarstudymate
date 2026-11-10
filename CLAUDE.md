@@ -183,6 +183,15 @@ Uitbreiding Techniek (requirementsdocument "Guitar Study Mate – Requirements T
   verhoogt de onderverdeling van de hele oefening (`prog.subdivision`), want engine en notenbalk kennen één
   raster; blijft het te krap, dan alsnog korter. Een diatonische halve toon die samenvalt met de chromatische
   wordt één noot. Niet gebouwd: parallelle akkoordvorm (groep 4), ritmewaarde per stap.
+- Licks (`technique/licks.ts`, `drawLick.ts`, `components/technique/LickFields.tsx`): materiaal van de
+  eigenaar komt NIET in de repo (auteursrecht; repo en Vercel-site zijn openbaar). De eigenaar importeert een
+  JSON-bestand (`guitar-study-mate/licks`, versie 1, `{number, chords, notes, title?, remark?}`), bewaard in
+  `gsm.licks`; hetzelfde nummer vervangt. Notentekst: geschreven toonhoogte (gitaar klinkt een octaaf lager),
+  duur loopt door, `.` `~` `(3 …)` `|`, elke maat 4/4. Raster 12 per tel (`subdivision: 12` in de engine, die dan
+  alleen op de tellen klikt); een noot draagt zijn lengte (`FretNote.len`), overgebonden noten klinken één keer.
+  Vingerzetting met dynamic programming in het fretvenster. Uitlezen van scans (fase-overstijgend, door Claude):
+  pagina's op 300 dpi, rechtzetten door de hoek met de scherpste horizontale projectie, per lick vier
+  uitsneden met nootnamen naast de lijnen; controleblad = scan boven de weergave uit de app.
 - De notenbalk in Techniek is een eigen tekening (`technique/drawScore.ts`), niet de Meespelen-tijdas:
   de speler is nog niet echt gedeeld tussen de modi.
 
