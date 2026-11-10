@@ -109,7 +109,8 @@ function click(ctx: AudioContext, out: AudioNode, time: number, level: 0 | 1 | 2
 export interface PlayOptions {
   /** one repeat, padded to whole bars; null = rest */
   slots: (FretNote | null)[];
-  subdivision: Subdivision;
+  /** slots per beat: 1–4 for exercises, 12 for licks (eighths, sixteenths and triplets) */
+  subdivision: Subdivision | 12;
   bpm: number;
   /** 0 = endless */
   repeats: number;
@@ -251,7 +252,8 @@ export class PracticeEngine {
       // metronome on every subdivision: bar, beat, in between
       const perBar = BEATS_PER_BAR * opts.subdivision;
       const level = inPass % perBar === 0 ? 0 : inPass % opts.subdivision === 0 ? 1 : 2;
-      click(ctx, this.clickBus!, time, level);
+      // a fine grid (licks) clicks on the beats only
+      if (level < 2 || opts.subdivision <= 4) click(ctx, this.clickBus!, time, level);
       if (r.next % perBar === 0) {
         this.accomp?.scheduleBar(r.next / perBar, time, step * opts.subdivision, opts.bpm);
       }
@@ -264,7 +266,7 @@ export class PracticeEngine {
           note.midi,
           note.string,
           time,
-          opts.ring ? null : step * 0.96,
+          note.len ? step * note.len * 0.98 : opts.ring ? null : step * 0.96,
         );
       }
       r.next += 1;

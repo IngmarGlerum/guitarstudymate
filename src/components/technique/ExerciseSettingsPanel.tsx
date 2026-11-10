@@ -7,6 +7,8 @@ import { BPM_MAX, BPM_MIN } from '../../technique/settings';
 import { ARPEGGIOS, pcName, ROOTS, SCALES, STRING_NAMES } from '../../technique/theory';
 import type { ProgressionState } from '../../technique/useProgression';
 import { ProgressionFields } from './ProgressionFields';
+import { LickFields } from './LickFields';
+import type { Lick } from '../../technique/licks';
 import { Field, Select } from './fields';
 import { FAMILY_LABEL, libraryEntry } from '../../technique/library';
 
@@ -23,6 +25,7 @@ interface Props {
   onEditPattern: () => void;
   onEditFillPattern: () => void;
   prog?: ProgressionState;
+  licks: { list: Lick[]; onImport: (licks: Lick[]) => void; originalKey: string };
 }
 
 /** The exercise's dimensions, in the order of the requirements. */
@@ -34,7 +37,9 @@ export function ExerciseSettingsPanel({
   onEditPattern,
   onEditFillPattern,
   prog,
+  licks,
 }: Props) {
+  const isLick = settings.kind === 'lick';
   const flats = ROOTS.find((r) => r.pc === settings.rootPc)?.flats ?? false;
   const arpeggio = settings.kind === 'arpeggio';
   const isProg = settings.kind === 'progression' && !!prog;
@@ -61,6 +66,7 @@ export function ExerciseSettingsPanel({
           { value: 'arpeggio', label: 'Arpeggio' },
           { value: 'pattern', label: 'Custom pattern' },
           { value: 'progression', label: 'Progressie' },
+          { value: 'lick', label: 'Lick' },
         ]}
       />
       {settings.kind === 'pattern' && (
@@ -70,7 +76,15 @@ export function ExerciseSettingsPanel({
           </Button>
         </Field>
       )}
-      {isProg ? (
+      {isLick ? (
+        <LickFields
+          settings={settings}
+          update={update}
+          licks={licks.list}
+          onImport={licks.onImport}
+          originalKey={licks.originalKey}
+        />
+      ) : isProg ? (
         <ProgressionFields settings={settings} update={update} prog={prog!} onEditFillPattern={onEditFillPattern} />
       ) : (
         <>
@@ -126,12 +140,14 @@ export function ExerciseSettingsPanel({
       )}
         </>
       )}
+      {!isLick && (
       <Select
         label="Onderverdeling"
         value={String(settings.subdivision)}
         onChange={(v) => update({ subdivision: Number(v) as ExerciseSettings['subdivision'] })}
         options={SUBDIVISIONS.map((d) => ({ value: String(d.value), label: d.label }))}
       />
+      )}
       <Field label="Tempo (BPM)">
         <NumberInput.Root
           size="sm"
@@ -151,7 +167,7 @@ export function ExerciseSettingsPanel({
           <NumberInput.Input aria-label="Tempo in tellen per minuut" />
         </NumberInput.Root>
       </Field>
-      {(!isProg ||
+      {!isLick && (!isProg ||
         settings.content === 'scale' ||
         (settings.content === 'enclosures' && (settings.fill === 'scale' || settings.fill === 'arpeggio'))) && (
       <Select

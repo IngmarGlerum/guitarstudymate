@@ -30,6 +30,8 @@ import { keyName } from '../../technique/harmony';
 import { parseProgression, segmentsOf, BUILTIN_PROGRESSIONS } from '../../technique/progressions';
 import { useProgression } from '../../technique/useProgression';
 import { RoutesPanel } from './RoutesPanel';
+import { drawLick, drawLickHighlight, lickEventAtX, lickLayout } from '../../technique/drawLick';
+import { lickExercise, lickRoot, useLicks } from '../../technique/licks';
 import { EnclosuresPanel } from './EnclosuresPanel';
 import { FitDialog } from './FitDialog';
 import { enclosureNeed, enclosureRoom } from '../../technique/progressionExercise';
@@ -110,12 +112,18 @@ export function TechniqueView({
   }, [audio]);
 
   const isProg = settings.kind === 'progression';
+  const isLick = settings.kind === 'lick';
+  const lickStore = useLicks();
+  const lick = lickStore.licks.find((l) => l.number === settings.lickNumber) ?? lickStore.licks[0] ?? null;
+  const lickOrigRoot = lick ? lickRoot(lick) : 0;
+  // transpose to the chosen key, by the smallest step (−6 … +5)
+  const lickShift = settings.lickKey < 0 ? 0 : ((settings.lickKey - lickOrigRoot + 18) % 12) - 6;
   const prog = useProgression(settings);
   const { passFor } = prog;
   // which repeat is on screen; follows the engine at each repeat boundary
   const [passIndex, setPassIndex] = useState(0);
   const progPass = useMemo(() => (isProg ? passFor(passIndex) : null), [isProg, passFor, passIndex]);
-  const keyPc = isProg ? prog.plan.key.pc : settings.rootPc;
+  const keyPc = isProg ? prog.plan.key.pc : isLick ? (lickOrigRoot + lickShift + 12) % 12 : settings.rootPc;
   // Make it fit! may play the progression faster than the chosen subdivision
   const sub = isProg ? prog.subdivision : settings.subdivision;
   const enclosures = isProg && settings.content === 'enclosures';
@@ -123,6 +131,11 @@ export function TechniqueView({
   const [fitDismissed, setFitDismissed] = useState(false);
   if (!misfit && fitDismissed) setFitDismissed(false);
   const flats = ROOTS.find((r) => r.pc === keyPc)?.flats ?? false;
+  const lickEx = useMemo(
+    () => (isLick && lick ? lickExercise(lick, lickShift, flats, settings.windowLo) : null),
+    [isLick, lick, lickShift, flats, settings.windowLo],
+  );
+  const lickLay = useMemo(() => (lickEx ? lickLayout(lickEx) : null), [lickEx]);
 
   // the combo: chords from the scale's home chord, or typed by the user
   const scaleChord = useMemo<Chord>(() => {
@@ -139,7 +152,9 @@ export function TechniqueView({
       on: accomp.on,
       style: accomp.style,
       // a progression plays its own chords; otherwise the scale's chord or typed chords
-      timeline: isProg
+      timeline: lickEx
+        ? lickEx.chords.map((chord) => ({ chord, beats: 4 }))
+        : isProg
         ? progSegs.map((sg) => ({ chord: sg.chord, beats: sg.beats }))
         : accomp.source === 'custom' && custom.segs.length
           ? custom.segs.map((sg) => ({ chord: sg.chord, beats: sg.beats }))
@@ -148,13 +163,22 @@ export function TechniqueView({
       droneRoot: 48 + keyPc,
       parts: accomp.parts,
     }),
-    [accomp, custom, scaleChord, keyPc, isProg, progSegs],
+    [accomp, custom, scaleChord, keyPc, isProg, progSegs, lickEx],
   );
   useEffect(() => {
     engine().setAccompaniment(accompConfig);
   }, [accompConfig]);
-  const fingering = useMemo(() => (isProg ? null : fingeringFor(settings)), [settings, isProg]);
-  const slots = useMemo(() => (progPass ? progPass.slots : layoutPass(settings)), [progPass, settings]);
+  const fingering = useMemo(() => (isProg || isLick ? null : fingeringFor(settings)), [settings, isProg, isLick]);
+  const slots = useMemo(
+    () => (isLick ? (lickEx?.slots ?? []) : progPass ? progPass.slots : layoutPass(settings)),
+    [isLick, lickEx, progPass, settings],
+  );
+  // the lick's notes on the neck, one dot per place
+  const lickNotes = useMemo(() => {
+    const seen = new Map<string, FretNote>();
+    for (const n of lickEx?.places ?? []) if (n) seen.set(`${n.string}:${n.fret}`, n);
+    return [...seen.values()];
+  }, [lickEx]);
   const chordLabels = useMemo(
     () =>
       isProg
@@ -172,7 +196,7 @@ export function TechniqueView({
     setPassIndex(0);
     void engine().start({
       slots: first,
-      subdivision: sub,
+      subdivision: isLick ? 12 : sub,
       bpm: settings.bpm,
       repeats: settings.repeats,
       countIn: audio.countIn,
@@ -185,7 +209,7 @@ export function TechniqueView({
     });
     setPlaying(true);
     setHasPlayed(true);
-  }, [slots, sub, settings.bpm, settings.repeats, settings.kind, settings.content, settings.fill, audio.countIn, isProg, passFor]);
+  }, [slots, sub, settings.bpm, settings.repeats, settings.kind, settings.content, settings.fill, audio.countIn, isProg, isLick, passFor]);
 
   const stopPlayback = useCallback(() => {
     engineRef.current?.stop();
@@ -232,11 +256,13 @@ export function TechniqueView({
   const scoreScroller = useRef<HTMLDivElement>(null);
   const scoreH = STAFF_H + (showTab ? TAB_H : 0);
   const drawScoreBase = useCallback(
-    (ctx: CanvasRenderingContext2D) => drawScore(ctx, layout, { showTab, flats }),
-    [layout, showTab, flats],
+    (ctx: CanvasRenderingContext2D) =>
+      lickLay ? drawLick(ctx, lickLay, { showTab, flats }) : drawScore(ctx, layout, { showTab, flats }),
+    [layout, lickLay, showTab, flats],
   );
-  useCanvas(scoreRef, layout.width, scoreH, drawScoreBase);
-  useCanvas(scoreOverlayRef, layout.width, scoreH, noop);
+  const scoreW = lickLay ? lickLay.width : layout.width;
+  useCanvas(scoreRef, scoreW, scoreH, drawScoreBase);
+  useCanvas(scoreOverlayRef, scoreW, scoreH, noop);
 
   const neckBox = useRef<HTMLDivElement>(null);
   const [neckW, setNeckW] = useState(0);
@@ -248,10 +274,10 @@ export function TechniqueView({
     setNeckW(el.clientWidth);
     return () => ro.disconnect();
   }, [view]);
-  const maxFret = isProg ? Math.max(12, ...(progPass?.windows ?? [settings.windowLo]).map((w) => w + 6)) : fingering ? Math.max(...fingering.notes.map((n) => n.fret)) : 12;
+  const maxFret = isLick ? Math.max(12, ...lickNotes.map((n) => n.fret)) : isProg ? Math.max(12, ...(progPass?.windows ?? [settings.windowLo]).map((w) => w + 6)) : fingering ? Math.max(...fingering.notes.map((n) => n.fret)) : 12;
   const neck = useMemo(() => neckLayout(Math.max(neckW, 600), maxFret), [neckW, maxFret]);
   // on narrow screens the neck scrolls: bring the fingering into view
-  const minFret = isProg ? Math.min(...(progPass?.windows ?? [settings.windowLo])) : fingering ? Math.min(...fingering.notes.map((n) => n.fret)) : 0;
+  const minFret = isLick ? Math.min(24, ...lickNotes.map((n) => n.fret)) : isProg ? Math.min(...(progPass?.windows ?? [settings.windowLo])) : fingering ? Math.min(...fingering.notes.map((n) => n.fret)) : 0;
   useEffect(() => {
     const el = neckBox.current;
     if (!el || el.scrollWidth <= el.clientWidth) return;
@@ -260,8 +286,8 @@ export function TechniqueView({
   const neckRef = useRef<HTMLCanvasElement>(null);
   const neckOverlayRef = useRef<HTMLCanvasElement>(null);
   const drawNeckBase = useCallback(
-    (ctx: CanvasRenderingContext2D) => drawNeck(ctx, neck, fingering?.notes ?? [], flats),
-    [neck, fingering, flats],
+    (ctx: CanvasRenderingContext2D) => drawNeck(ctx, neck, isLick ? lickNotes : (fingering?.notes ?? []), flats),
+    [neck, fingering, flats, isLick, lickNotes],
   );
   useCanvas(neckRef, view === 'neck' ? neck.width : 0, NECK_H, drawNeckBase);
   useCanvas(neckOverlayRef, view === 'neck' ? neck.width : 0, NECK_H, noop);
@@ -271,6 +297,14 @@ export function TechniqueView({
   const PREVIEW_MS = 450;
   const onScoreClick = (e: MouseEvent<HTMLCanvasElement>) => {
     const x = e.clientX - e.currentTarget.getBoundingClientRect().left;
+    if (lickLay) {
+      const i = lickEventAtX(lickLay, x);
+      const n = i >= 0 ? lickLay.ex.places[i] : null;
+      if (!n) return;
+      previewNotes([n.midi]);
+      preview.current = { slot: Math.round(lickLay.ex.events[i].start), note: n, until: performance.now() + PREVIEW_MS };
+      return;
+    }
     let best = -1;
     let dist = 16; // px tolerance around the notehead
     layout.slots.forEach((n, i) => {
@@ -286,7 +320,7 @@ export function TechniqueView({
     preview.current = { slot: best, note, until: performance.now() + PREVIEW_MS };
   };
   const onNeckClick = (e: MouseEvent<HTMLCanvasElement>) => {
-    const notes = progPass ? progPass.boxes[shownSeg.current] ?? [] : (fingering?.notes ?? []);
+    const notes = isLick ? lickNotes : progPass ? progPass.boxes[shownSeg.current] ?? [] : (fingering?.notes ?? []);
     const r = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
@@ -304,9 +338,9 @@ export function TechniqueView({
   const shown = useRef({ slot: -2, key: '', previewNote: null as FretNote | null });
   const shownSeg = useRef(0);
   const passRef = useRef(0);
-  const frameState = useRef({ layout, neck, showTab, flats, view, progPass });
+  const frameState = useRef({ layout, neck, showTab, flats, view, progPass, lickLay });
   useEffect(() => {
-    frameState.current = { layout, neck, showTab, flats, view, progPass };
+    frameState.current = { layout, neck, showTab, flats, view, progPass, lickLay };
     shown.current.key = ''; // force a redraw after a layout change
   });
   useFrame(() => {
@@ -319,16 +353,26 @@ export function TechniqueView({
     // while stopped, a clicked note lights up for a moment
     const pv = !pos && preview.current && performance.now() < preview.current.until ? preview.current : null;
     const slot = pos ? pos.slot : pv ? pv.slot : -2;
-    const neckNote = pv ? pv.note : slot >= 0 ? (frameState.current.layout.slots[slot] ?? null) : null;
     const st = frameState.current;
-    const key = `${st.view}|${st.showTab}|${st.layout.width}|${st.neck.width}`;
+    const lickIdx = st.lickLay && slot >= 0 ? st.lickLay.eventAt(slot) : -1;
+    const neckNote = pv
+      ? pv.note
+      : st.lickLay
+        ? lickIdx >= 0
+          ? st.lickLay.ex.places[lickIdx]
+          : null
+        : slot >= 0
+          ? (st.layout.slots[slot] ?? null)
+          : null;
+    const key = `${st.view}|${st.showTab}|${st.lickLay?.width ?? st.layout.width}|${st.neck.width}`;
     if (slot === shown.current.slot && key === shown.current.key && neckNote === shown.current.previewNote) return;
     shown.current = { slot, key, previewNote: neckNote };
     if (statusRef.current) {
       statusRef.current.textContent = pos?.countIn ? 'Voortellen…' : '';
     }
     const sctx = overlayContext(scoreOverlayRef.current);
-    if (sctx) drawScoreHighlight(sctx, st.layout, slot, st.showTab);
+    if (sctx && st.lickLay) drawLickHighlight(sctx, st.lickLay, slot, st.showTab, st.flats);
+    else if (sctx) drawScoreHighlight(sctx, st.layout, slot, st.showTab);
     const nctx = st.view === 'neck' ? overlayContext(neckOverlayRef.current) : null;
     if (nctx && st.progPass) {
       // progressions: the sounding chord's scale in its window, its target, the note
@@ -342,7 +386,7 @@ export function TechniqueView({
     // keep the current note in view
     const scroller = scoreScroller.current;
     if (scroller && slot >= 0 && !pv) {
-      const x = st.layout.noteX(slot);
+      const x = st.lickLay ? st.lickLay.noteX(slot) : st.layout.noteX(slot);
       if (x < scroller.scrollLeft + 40 || x > scroller.scrollLeft + scroller.clientWidth - 60) {
         scroller.scrollLeft = Math.max(0, x - scroller.clientWidth * 0.25);
       }
@@ -352,12 +396,21 @@ export function TechniqueView({
   const formula = formulaFor(settings);
   const progLabel =
     settings.progressionId === 'custom' ? 'Eigen schema' : BUILTIN_PROGRESSIONS.find((p) => p.id === settings.progressionId)?.label;
-  const title = isProg
+  const title = isLick
+    ? lick
+      ? `Lick ${lick.number}${lick.title ? ` · ${lick.title}` : ''} · ${pcName(keyPc, flats)}`
+      : 'Lick'
+    : isProg
     ? `${progLabel} · ${keyName(prog.plan.key, flats)}`
     : settings.kind === 'arpeggio'
       ? `${pcName(settings.rootPc, flats)} ${formula.label.toLowerCase()} arpeggio`
       : `${pcName(settings.rootPc, flats)} ${formula.label.toLowerCase()}${settings.kind === 'pattern' ? ` · patroon ${settings.pattern.join(' ')}` : ''}`;
   const empty = slots.every((s) => s === null);
+  const emptyText = isLick
+    ? lickStore.licks.length
+      ? `Lick ${lick?.number} kon niet gelezen worden: ${lickEx?.errors.join('; ') || 'geen noten'}.`
+      : 'Nog geen licks in deze browser. Importeer een licks-bestand met de knop hierboven.'
+    : 'Dit patroon past nergens helemaal in deze vingerzetting. Kies een korter patroon of meer noten per snaar.';
 
   return (
     <Box
@@ -390,6 +443,7 @@ export function TechniqueView({
           onEditPattern={() => setPatternOpen('exercise')}
           onEditFillPattern={() => setPatternOpen('fill')}
           prog={prog}
+          licks={{ list: lickStore.licks, onImport: lickStore.importLicks, originalKey: pcName(lickOrigRoot, ROOTS.find((r) => r.pc === lickOrigRoot)?.flats ?? false) }}
         />
       </Box>
 
@@ -414,12 +468,11 @@ export function TechniqueView({
         {empty ? (
           <Flex h={`${STAFF_H}px`} align="center" justify="center" px="4">
             <Text fontSize="sm" color="fg.muted" textAlign="center">
-              Dit patroon past nergens helemaal in deze vingerzetting. Kies een korter patroon of
-              meer noten per snaar.
+              {emptyText}
             </Text>
           </Flex>
         ) : (
-          <Box position="relative" w={`${layout.width}px`} h={`${scoreH}px`}>
+          <Box position="relative" w={`${scoreW}px`} h={`${scoreH}px`}>
             <chakra.canvas ref={scoreRef} position="absolute" inset="0" aria-hidden="true" />
             <chakra.canvas
               ref={scoreOverlayRef}
@@ -483,7 +536,7 @@ export function TechniqueView({
         prefs={accomp}
         onChange={setAccomp}
         scaleChordName={chordName(scaleChord, flats)}
-        progression={isProg}
+        progression={isProg || isLick}
         unknown={accomp.source === 'custom' && !isProg ? custom.unknown : []}
       />
 

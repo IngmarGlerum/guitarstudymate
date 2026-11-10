@@ -23,7 +23,7 @@ interface Props {
   scaleChordName: string;
   /** chord names that could not be read from the custom line */
   unknown: string[];
-  /** a progression exercise: the combo plays its chords */
+  /** a progression or lick: the combo plays its chords */
   progression?: boolean;
 }
 
@@ -66,7 +66,7 @@ export function AccompanimentPanel({ prefs, onChange, scaleChordName, unknown, p
         {progression ? (
           <Labeled label="Akkoorden">
             <Text fontSize="sm" h="8" display="flex" alignItems="center">
-              Die van de progressie
+              Die van de oefening
             </Text>
           </Labeled>
         ) : (

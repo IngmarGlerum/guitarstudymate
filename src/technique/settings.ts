@@ -16,7 +16,9 @@ export const BPM_MAX = 300;
 /** Fill gaps and fix impossible combinations (e.g. a position the new scale lacks). */
 export function normalize(raw: Partial<ExerciseSettings>): ExerciseSettings {
   const s: ExerciseSettings = { ...DEFAULT_SETTINGS, ...raw };
-  if (!['scale', 'arpeggio', 'pattern', 'progression'].includes(s.kind)) s.kind = 'scale';
+  if (!['scale', 'arpeggio', 'pattern', 'progression', 'lick'].includes(s.kind)) s.kind = 'scale';
+  s.lickNumber = Math.max(0, Math.round(Number(s.lickNumber) || 0));
+  s.lickKey = Number.isInteger(s.lickKey) && s.lickKey >= -1 && s.lickKey < 12 ? s.lickKey : -1;
   if (typeof s.progressionText !== 'string') s.progressionText = DEFAULT_SETTINGS.progressionText;
   if (typeof s.progressionId !== 'string') s.progressionId = DEFAULT_SETTINGS.progressionId;
   if (typeof s.keyChoice !== 'string' || !/^(auto|\d{1,2}:(maj|min))$/.test(s.keyChoice)) s.keyChoice = 'auto';
