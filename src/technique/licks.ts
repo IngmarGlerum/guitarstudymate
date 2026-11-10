@@ -107,16 +107,38 @@ export function parseLickNotes(text: string): { events: LickEvent[]; bars: numbe
   return { events, bars: bars.length, errors };
 }
 
-/** One chord per bar, the last one repeated when the lick gives fewer bars. */
-export function lickChords(lick: Lick, bars: number): Chord[] {
+export interface LickChord {
+  chord: Chord;
+  /** in beats from the start of the lick */
+  start: number;
+  beats: number;
+}
+
+/**
+ * The chords on the lick's timeline. Bars split like progressions (chords in a
+ * bar share its beats); missing bars repeat the last chord; the same chord in a
+ * row is merged.
+ */
+export function lickChords(lick: Lick, bars: number): LickChord[] {
   const p = parseProgression(lick.chords);
-  const list = p.bars.map((b) => b[0]?.chord).filter((c): c is Chord => !!c);
-  if (!list.length) return [];
-  return Array.from({ length: bars }, (_, i) => list[Math.min(i, list.length - 1)]);
+  const given = p.bars.filter((b) => b.length);
+  if (!given.length) return [];
+  const out: LickChord[] = [];
+  for (let b = 0; b < bars; b++) {
+    const bar = given[b] ?? [{ chord: given[given.length - 1].at(-1)!.chord, beats: 4 }];
+    let t = b * 4;
+    for (const bc of bar) {
+      const last = out[out.length - 1];
+      if (last && last.chord.rootPc === bc.chord.rootPc && last.chord.type === bc.chord.type) last.beats += bc.beats;
+      else out.push({ chord: bc.chord, start: t, beats: bc.beats });
+      t += bc.beats;
+    }
+  }
+  return out;
 }
 
 /** Root of the first chord: the lick's key for transposing. */
-export const lickRoot = (lick: Lick) => lickChords(lick, 1)[0]?.rootPc ?? 0;
+export const lickRoot = (lick: Lick) => lickChords(lick, 1)[0]?.chord.rootPc ?? 0;
 
 /** Validate an imported file; returns the licks that could be read and messages. */
 export function readLickFile(data: unknown): { licks: Lick[]; problems: string[] } {
@@ -258,7 +280,7 @@ export interface LickExercise {
   places: (FretNote | null)[];
   /** fine grid for the engine: 12 slots per beat, a note (with its length) where it starts */
   slots: (FretNote | null)[];
-  chords: Chord[];
+  chords: LickChord[];
   bars: number;
   errors: string[];
 }
@@ -297,7 +319,7 @@ export function lickExercise(lick: Lick, shift: number, flats: boolean, lo: numb
     events,
     places,
     slots,
-    chords: lickChords(lick, bars).map((c) => ({ ...c, rootPc: (c.rootPc + shift + 120) % 12 })),
+    chords: lickChords(lick, bars).map((c) => ({ ...c, chord: { ...c.chord, rootPc: (c.chord.rootPc + shift + 120) % 12 } })),
     bars,
     errors: parsed.errors,
   };

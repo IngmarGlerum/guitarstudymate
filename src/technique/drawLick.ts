@@ -165,10 +165,7 @@ export function drawLick(ctx: CanvasRenderingContext2D, layout: LickLayout, opts
   });
 
   ctx.textBaseline = 'alphabetic';
-  ex.chords.forEach((c, b) => {
-    if (b > 0 && sameChord(c, ex.chords[b - 1])) return;
-    drawChord(ctx, layout, c, b, false, opts.flats);
-  });
+  for (const c of ex.chords) drawChord(ctx, layout, c.chord, c.start, false, opts.flats);
 
   if (!opts.showTab) return;
   ctx.font = "600 10px 'Instrument Sans Variable', system-ui, sans-serif";
@@ -192,10 +189,9 @@ export function drawLick(ctx: CanvasRenderingContext2D, layout: LickLayout, opts
 }
 
 const ACC_OFFSET = (acc: LickEvent['accidental']) => ({ '': 0, n: 0, '#': 1, '##': 2, b: -1, bb: -2 })[acc];
-const sameChord = (a: Chord, b: Chord) => a.rootPc === b.rootPc && a.type === b.type;
 
-function drawChord(ctx: CanvasRenderingContext2D, layout: LickLayout, c: Chord, bar: number, lit: boolean, flats: boolean) {
-  const x = layout.noteX(bar * BAR_TICKS);
+function drawChord(ctx: CanvasRenderingContext2D, layout: LickLayout, c: Chord, beat: number, lit: boolean, flats: boolean) {
+  const x = layout.noteX(beat * (BAR_TICKS / 4));
   const text = chordName(c, flats);
   ctx.font = "600 14px 'Newsreader Variable', Georgia, serif";
   ctx.textBaseline = 'alphabetic';
@@ -233,11 +229,9 @@ export function drawLickHighlight(
   flats: boolean,
 ) {
   if (slot < 0) return;
-  const bar = Math.floor(slot / BAR_TICKS);
-  let first = bar;
-  const chords = layout.ex.chords;
-  while (first > 0 && chords[first - 1] && chords[bar] && sameChord(chords[first - 1], chords[bar])) first--;
-  if (chords[bar]) drawChord(ctx, layout, chords[bar], first, true, flats);
+  const beat = slot / (BAR_TICKS / 4);
+  const current = [...layout.ex.chords].reverse().find((c) => c.start <= beat + 1e-6);
+  if (current) drawChord(ctx, layout, current.chord, current.start, true, flats);
   const i = layout.eventAt(slot);
   if (i < 0) return;
   const x = layout.noteX(layout.ex.events[i].start) + NOTE_CENTER;

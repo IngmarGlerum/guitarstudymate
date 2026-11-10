@@ -153,7 +153,7 @@ export function TechniqueView({
       style: accomp.style,
       // a progression plays its own chords; otherwise the scale's chord or typed chords
       timeline: lickEx
-        ? lickEx.chords.map((chord) => ({ chord, beats: 4 }))
+        ? lickEx.chords.map((c) => ({ chord: c.chord, beats: c.beats }))
         : isProg
         ? progSegs.map((sg) => ({ chord: sg.chord, beats: sg.beats }))
         : accomp.source === 'custom' && custom.segs.length
