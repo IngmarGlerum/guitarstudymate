@@ -192,6 +192,10 @@ Uitbreiding Techniek (requirementsdocument "Guitar Study Mate – Requirements T
   Vingerzetting met dynamic programming in het fretvenster. Uitlezen van scans (fase-overstijgend, door Claude):
   pagina's op 300 dpi, rechtzetten door de hoek met de scherpste horizontale projectie, per lick vier
   uitsneden met nootnamen naast de lijnen; controleblad = scan boven de weergave uit de app.
+- Loop in Techniek: slepen op de overlay-canvas van de notenbalk kiest hele tellen (`loop` in tellen, weg bij een
+  andere oefening). De engine krijgt `range` (slots) en speelt alleen dat stuk; `countInEachPass` zet een maat
+  tikken (geen noten, geen begeleiding) voor elke herhaling na de eerste. `position()` geeft absolute slots.
+  Begint de loop midden in een maat, dan plant de begeleiding die maat vanaf de juiste tel (`fromBeat`).
 - De notenbalk in Techniek is een eigen tekening (`technique/drawScore.ts`), niet de Meespelen-tijdas:
   de speler is nog niet echt gedeeld tussen de modi.
 

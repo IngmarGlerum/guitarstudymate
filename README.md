@@ -83,6 +83,9 @@ stopt het afspelen. Sleep je een opname op het venster, dan opent die in Meespel
   akkoorden en begeleiding. Formaat van de noten per lick: `e5/8 d5 c5 b4 | g4/4. (3 f4/8 g4 f4) | c4/2~ c4/4 r/4`
   (toonhoogte zoals geschreven voor gitaar, `/8` enz. voor de duur die doorloopt, `.` gepunteerd, `~` overbinden,
   `(3 … )` triool, `|` maatstreep; elke maat moet 4 tellen hebben).
+- **Loop in Techniek**: sleep over de notenbalk om een deel van de oefening te isoleren (op hele tellen);
+  het × op de loop haalt hem weg. "Voortellen bij elke herhaling" geeft een maat tikken voor elke
+  herhaling. Het tempo in de afspeelbalk is aan te klikken en te typen (pijltjes ±1, met Shift ±5).
 - **Presets**: sla de huidige oefening onder een naam op en laad hem later terug. Presets staan alleen in
   deze browser (localStorage, JSON, geen account); exporteer en importeer ze als bestand als vangnet.
 

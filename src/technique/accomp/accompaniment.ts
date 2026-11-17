@@ -79,15 +79,17 @@ export class Accompaniment {
   }
 
   /** Schedule bar `bar` starting at `time`. */
-  scheduleBar(bar: number, time: number, beatSeconds: number, bpm: number) {
+  /** `fromBeat`: a loop that starts mid-bar; events before that beat are skipped */
+  scheduleBar(bar: number, time: number, beatSeconds: number, bpm: number, fromBeat = 0) {
     const c = this.config;
     if (!c.on) return;
     const at = (beat: number) => time + beat * beatSeconds;
-    if (c.parts.drone.on) this.drone.play(c.droneRoot, time, beatSeconds * 4);
+    if (c.parts.drone.on) this.drone.play(c.droneRoot, at(fromBeat), beatSeconds * (4 - fromBeat));
     const { segs, after } = barSegments(c.timeline, bar);
     if (!segs.length) return;
     const piano = this.pianos[c.pianoSound];
     for (const e of generateBar(c.style, segs, after, bar, bpm, this.state)) {
+      if (e.beat < fromBeat - 1e-6) continue;
       if (e.part === 'bass' && c.parts.bass.on) this.bass.play(e.midi, at(e.beat), e.dur * beatSeconds, e.vel);
       if (e.part === 'piano' && c.parts.piano.on) {
         for (const m of e.midis) piano.play(m, at(e.beat), e.dur * beatSeconds, e.vel);

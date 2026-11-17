@@ -1,6 +1,7 @@
 import { Box, Button, chakra, Flex, IconButton, SegmentGroup, Slider, Switch, Text } from '@chakra-ui/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
-import { LuBookmark, LuLibrary, LuPlay, LuSquare } from 'react-icons/lu';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { LuBookmark, LuLibrary, LuPlay, LuSquare, LuX } from 'react-icons/lu';
+import { BpmInput } from './BpmInput';
 import { overlayContext, useCanvas } from '../../hooks/useCanvas';
 import { useFrame } from '../../hooks/useFrame';
 import { useStoredState } from '../../hooks/useStoredState';
@@ -47,6 +48,8 @@ interface AudioPrefs {
   guitarVolume: number;
   clickVolume: number;
   countIn: boolean;
+  /** a bar of count-in before every repeat (handy with a loop) */
+  countInEachRepeat?: boolean;
 }
 const DEFAULT_AUDIO: AudioPrefs = { guitarOn: true, guitarVolume: 0.8, clickVolume: 0.6, countIn: true };
 const isAudio = (v: unknown): v is AudioPrefs =>
@@ -189,6 +192,22 @@ export function TechniqueView({
   const layout = useMemo(() => scoreLayout(slots, sub, chordLabels), [slots, sub, chordLabels]);
   const showTab = view === 'tab';
 
+  // ---- loop over part of the exercise (whole beats) ----
+  const slotsPerBeat = isLick ? 12 : sub;
+  const totalBeats = Math.max(1, Math.round(slots.length / slotsPerBeat));
+  const [loop, setLoop] = useState<{ from: number; to: number } | null>(null);
+  const loopIdentity = `${settings.kind}|${slots.length}|${slotsPerBeat}|${lick?.number ?? ''}|${settings.progressionId}`;
+  const [loopFor, setLoopFor] = useState(loopIdentity);
+  if (loopFor !== loopIdentity) {
+    // another exercise: the old loop no longer means anything
+    setLoopFor(loopIdentity);
+    setLoop(null);
+  }
+  const range = useMemo(
+    () => (loop ? { from: loop.from * slotsPerBeat, to: loop.to * slotsPerBeat } : undefined),
+    [loop, slotsPerBeat],
+  );
+
   // ---- playback ----
   const startPlayback = useCallback(() => {
     if (slots.every((s) => s === null)) return;
@@ -205,11 +224,13 @@ export function TechniqueView({
         settings.kind === 'arpeggio' ||
         (isProg && (settings.content === 'targets' || (settings.content === 'enclosures' && settings.fill === 'rest'))),
       passSlots: isProg ? (p) => passFor(p).slots : undefined,
+      range,
+      countInEachPass: !!audio.countInEachRepeat,
       onEnd: () => setPlaying(false),
     });
     setPlaying(true);
     setHasPlayed(true);
-  }, [slots, sub, settings.bpm, settings.repeats, settings.kind, settings.content, settings.fill, audio.countIn, isProg, isLick, passFor]);
+  }, [slots, sub, settings.bpm, settings.repeats, settings.kind, settings.content, settings.fill, audio.countIn, audio.countInEachRepeat, isProg, isLick, passFor, range]);
 
   const stopPlayback = useCallback(() => {
     engineRef.current?.stop();
@@ -217,7 +238,7 @@ export function TechniqueView({
   }, []);
 
   // a changed exercise restarts playback, so what you hear always matches the screen
-  const restartKey = `${JSON.stringify((isProg ? passFor(0).slots : slots).map((s) => s?.midi ?? -1))}|${settings.bpm}|${sub}|${settings.repeats}|${settings.kind}|${settings.content}|${settings.routeLayer}|${settings.routeOrder}|${JSON.stringify(settings.routeOff)}`;
+  const restartKey = `${JSON.stringify((isProg ? passFor(0).slots : slots).map((s) => s?.midi ?? -1))}|${settings.bpm}|${sub}|${settings.repeats}|${settings.kind}|${settings.content}|${settings.routeLayer}|${settings.routeOrder}|${JSON.stringify(settings.routeOff)}|${loop?.from}-${loop?.to}|${!!audio.countInEachRepeat}`;
   const lastKey = useRef(restartKey);
   useEffect(() => {
     if (lastKey.current === restartKey) return;
@@ -295,8 +316,53 @@ export function TechniqueView({
   // ---- click a note (staff, tab or neck) to hear it; it lights up briefly ----
   const preview = useRef<{ slot: number; note: FretNote; until: number } | null>(null);
   const PREVIEW_MS = 450;
-  const onScoreClick = (e: MouseEvent<HTMLCanvasElement>) => {
+  const slotX = (slot: number) => (lickLay ? lickLay.noteX(slot) : layout.noteX(slot));
+  /** the beat whose area holds x (from just before its first note to the next beat) */
+  const beatAt = (x: number) => {
+    let b = 0;
+    for (let k = 0; k < totalBeats; k++) if (slotX(k * slotsPerBeat) - 8 <= x) b = k;
+    return b;
+  };
+  const drag = useRef<{ x0: number; moved: boolean } | null>(null);
+  const [draft, setDraft] = useState<{ from: number; to: number } | null>(null);
+  const spanOf = (x0: number, x1: number) => ({
+    from: beatAt(Math.min(x0, x1)),
+    to: beatAt(Math.max(x0, x1)) + 1,
+  });
+  const onScoreDown = (e: PointerEvent<HTMLCanvasElement>) => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { x0: e.clientX - e.currentTarget.getBoundingClientRect().left, moved: false };
+  };
+  const onScoreMove = (e: PointerEvent<HTMLCanvasElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    if (e.buttons === 0) {
+      // the release happened elsewhere: never let the loop stick to the mouse
+      drag.current = null;
+      setDraft(null);
+      return;
+    }
     const x = e.clientX - e.currentTarget.getBoundingClientRect().left;
+    if (!d.moved && Math.abs(x - d.x0) < 6) return;
+    d.moved = true;
+    setDraft(spanOf(d.x0, x));
+  };
+  const onScoreUp = (e: PointerEvent<HTMLCanvasElement>) => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    const x = e.clientX - e.currentTarget.getBoundingClientRect().left;
+    if (d.moved) {
+      const span = spanOf(d.x0, x);
+      setDraft(null);
+      // the whole exercise is the same as no loop
+      setLoop(span.from === 0 && span.to >= totalBeats ? null : span);
+      return;
+    }
+    onScoreClick(x);
+  };
+  const onScoreClick = (x: number) => {
     if (lickLay) {
       const i = lickEventAtX(lickLay, x);
       const n = i >= 0 ? lickLay.ex.places[i] : null;
@@ -480,8 +546,28 @@ export function TechniqueView({
               inset="0"
               aria-hidden="true"
               cursor="pointer"
-              onClick={onScoreClick}
+              touchAction="pan-y"
+              onPointerDown={onScoreDown}
+              onPointerMove={onScoreMove}
+              onPointerUp={onScoreUp}
+              onPointerCancel={() => {
+                drag.current = null;
+                setDraft(null);
+              }}
+              onLostPointerCapture={() => {
+                drag.current = null;
+                setDraft(null);
+              }}
             />
+            {(draft ?? loop) && (
+              <LoopRegion
+                left={slotX((draft ?? loop)!.from * slotsPerBeat) - 9}
+                right={slotX((draft ?? loop)!.to * slotsPerBeat) - 9}
+                height={scoreH}
+                label={`Tel ${(draft ?? loop)!.from + 1}–${(draft ?? loop)!.to} van ${totalBeats}`}
+                onClear={draft ? undefined : () => setLoop(null)}
+              />
+            )}
           </Box>
         )}
       </Box>
@@ -566,9 +652,7 @@ export function TechniqueView({
             </IconButton>
           </Hint>
           <Flex direction="column">
-            <Text fontFamily="heading" fontSize="xl" lineHeight="1" fontVariantNumeric="tabular-nums">
-              {settings.bpm} BPM
-            </Text>
+            <BpmInput value={settings.bpm} onChange={(bpm) => update({ bpm })} />
             <Text fontSize="xs" color="fg.muted" minH="1.2em">
               <span ref={statusRef} />
             </Text>
@@ -591,6 +675,19 @@ export function TechniqueView({
             <Switch.Thumb />
           </Switch.Control>
           <Switch.Label fontSize="sm">Voortellen</Switch.Label>
+        </Switch.Root>
+
+        <Switch.Root
+          checked={!!audio.countInEachRepeat}
+          onCheckedChange={(e) => setAudio({ ...audio, countInEachRepeat: e.checked })}
+          colorPalette="brass"
+          size="sm"
+        >
+          <Switch.HiddenInput />
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+          <Switch.Label fontSize="sm">Voortellen bij elke herhaling</Switch.Label>
         </Switch.Root>
 
         <Flex align="center" gap="3" minW="220px" flex="1" maxW="320px">
@@ -658,6 +755,53 @@ export function TechniqueView({
 }
 
 function noop() {}
+
+/** The loop over part of the exercise: a cherry band over staff and tab, with a × to remove it. */
+function LoopRegion({
+  left,
+  right,
+  height,
+  label,
+  onClear,
+}: {
+  left: number;
+  right: number;
+  height: number;
+  label: string;
+  onClear?: () => void;
+}) {
+  return (
+    <Box
+      position="absolute"
+      top="0"
+      left={`${left}px`}
+      w={`${Math.max(8, right - left)}px`}
+      h={`${height}px`}
+      pointerEvents="none"
+      bg="cherry.500/12"
+      borderInlineWidth="2px"
+      borderColor="cherry.400"
+      aria-label={`Loop: ${label}`}
+    >
+      {onClear && (
+        <IconButton
+          aria-label="Loop wissen"
+          size="2xs"
+          variant="solid"
+          colorPalette="cherry"
+          rounded="full"
+          position="absolute"
+          top="1"
+          right="1"
+          pointerEvents="auto"
+          onClick={onClear}
+        >
+          <LuX />
+        </IconButton>
+      )}
+    </Box>
+  );
+}
 
 function VolumeSlider({
   label,
