@@ -123,6 +123,19 @@ export interface PlayOptions {
    * repeat can play another route. Called just before that repeat is scheduled.
    */
   passSlots?: (pass: number) => (FretNote | null)[];
+  /** a loop over part of the exercise: slots [from, to), on whole beats */
+  range?: { from: number; to: number };
+  /** a bar of count-in clicks before every repeat after the first */
+  countInEachPass?: boolean;
+}
+
+/** What virtual step k of a run is: a slot of pass `pass`, or a count-in step. */
+function stepAt(k: number, from: number, len: number, pre: number) {
+  if (k < len) return { pass: 0, slot: from + k, pre: -1 };
+  const period = pre + len;
+  const j = (k - len) % period;
+  const pass = 1 + Math.floor((k - len) / period);
+  return j < pre ? { pass, slot: -1, pre: j } : { pass, slot: from + j - pre, pre: -1 };
 }
 
 const LOOKAHEAD = 0.15; // seconds scheduled ahead
@@ -147,6 +160,10 @@ export class PracticeEngine {
     next: number;
     total: number;
     voices: (Voice | null)[];
+    from: number;
+    len: number;
+    pre: number;
+    pass: number;
   } | null = null;
 
   private guitarVolume = 0.8;
@@ -229,8 +246,12 @@ export class PracticeEngine {
         click(ctx, this.clickBus!, t0 - countInTime + b * beat, b === 0 ? 0 : 1);
       }
     }
-    const total = opts.repeats > 0 ? opts.repeats * opts.slots.length : Infinity;
-    this.run = { opts, t0, step, next: 0, total, voices: Array(6).fill(null) };
+    const from = opts.range ? Math.max(0, Math.min(opts.slots.length - 1, opts.range.from)) : 0;
+    const to = opts.range ? Math.max(from + 1, Math.min(opts.slots.length, opts.range.to)) : opts.slots.length;
+    const len = to - from;
+    const pre = opts.countInEachPass ? BEATS_PER_BAR * opts.subdivision : 0;
+    const total = opts.repeats > 0 ? len + (opts.repeats - 1) * (pre + len) : Infinity;
+    this.run = { opts, t0, step, next: 0, total, voices: Array(6).fill(null), from, len, pre, pass: 0 };
     this.tick();
     this.timer = window.setInterval(() => this.tick(), TICK_MS);
   }
@@ -240,22 +261,35 @@ export class PracticeEngine {
     const r = this.run;
     if (!ctx || !r) return;
     const { step } = r;
-    const len = r.opts.slots.length;
     while (r.next < r.total && r.t0 + r.next * step < ctx.currentTime + LOOKAHEAD) {
       const time = r.t0 + r.next * step;
-      const inPass = r.next % len;
-      if (inPass === 0 && r.opts.passSlots) {
-        const next = r.opts.passSlots(Math.floor(r.next / len));
-        if (next.length === len) r.opts = { ...r.opts, slots: next };
+      const at = stepAt(r.next, r.from, r.len, r.pre);
+      const sub = r.opts.subdivision;
+      if (at.slot < 0) {
+        // count-in bar between repeats: clicks on the beats, nothing else
+        if (at.pre % sub === 0) click(ctx, this.clickBus!, time, at.pre === 0 ? 0 : 1);
+        r.next += 1;
+        continue;
+      }
+      if (at.pass !== r.pass || r.next === 0) {
+        r.pass = at.pass;
+        if (r.opts.passSlots && at.pass > 0) {
+          const next = r.opts.passSlots(at.pass);
+          if (next.length === r.opts.slots.length) r.opts = { ...r.opts, slots: next };
+        }
       }
       const opts = r.opts;
+      const inPass = at.slot;
       // metronome on every subdivision: bar, beat, in between
-      const perBar = BEATS_PER_BAR * opts.subdivision;
-      const level = inPass % perBar === 0 ? 0 : inPass % opts.subdivision === 0 ? 1 : 2;
+      const perBar = BEATS_PER_BAR * sub;
+      const level = inPass % perBar === 0 ? 0 : inPass % sub === 0 ? 1 : 2;
       // a fine grid (licks) clicks on the beats only
-      if (level < 2 || opts.subdivision <= 4) click(ctx, this.clickBus!, time, level);
-      if (r.next % perBar === 0) {
-        this.accomp?.scheduleBar(r.next / perBar, time, step * opts.subdivision, opts.bpm);
+      if (level < 2 || sub <= 4) click(ctx, this.clickBus!, time, level);
+      const first = inPass === r.from;
+      if (inPass % perBar === 0 || first) {
+        // a loop that starts mid-bar plays the rest of that bar
+        const into = (inPass % perBar) / sub;
+        this.accomp?.scheduleBar(Math.floor(inPass / perBar), time - into * step * sub, step * sub, opts.bpm, into);
       }
 
       const note = opts.slots[inPass];
@@ -311,8 +345,8 @@ export class PracticeEngine {
     if (now < r.t0) return { slot: -1, countIn: true, pass: 0 };
     const k = Math.floor((now - r.t0) / r.step);
     if (k >= r.total) return null;
-    const len = r.opts.slots.length;
-    return { slot: k % len, countIn: false, pass: Math.floor(k / len) };
+    const at = stepAt(k, r.from, r.len, r.pre);
+    return { slot: at.slot, countIn: at.slot < 0, pass: at.pass };
   }
 
   dispose() {
